@@ -343,7 +343,9 @@ LogEntry * sqlite_logentry_readindex(LogSystem *log, LogIndex idx)
 
 	entry = sqlite_logentry_alloc_skipclear(log, idx);
 
-	if (log_sqlitereadbuf(entry) < 1)
+	// Jira TX-3199 DAO: stub
+	// if (log_sqlitereadbuf(entry) < 1)
+	if (dao_logentry_findOne(entry) < 1)
     {
         /*  0 no entries
          * -1 an error appened */
@@ -592,7 +594,9 @@ LogEntry * sqlite_logentry_get(LogSystem *log)
 
 	entry = sqlite_logentry_alloc_skipclear(log, log->walkidx);
 
-	if (log_sqlitereadbuf(entry) < 1)
+	// Jira TX-3199 DAO: stub
+	// if (log_sqlitereadbuf(entry) < 1)
+	if (dao_logentry_findOne(entry) < 1)
 	{
 		/*  0 no entries
 		 * -1 an error appened */
