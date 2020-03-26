@@ -1,0 +1,9 @@
+base "syslog.cfg" LOG LOG2
+begin
+  ! First method
+  LOG2 := sSYSLOG
+  LOG2.INDEX := number(pINDEX)
+  ! Second method
+  LOG := find(sSYSLOG, INDEX=number(pINDEX))
+  log("Testresults:",LOG.CONNECTION,":",LOG2.CONNECTION,NL)
+endbegin

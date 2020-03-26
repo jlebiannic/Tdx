@@ -1,0 +1,8 @@
+MKSCANFILE 	mkscanfile
+REPROCESS 	reprocess
+SENDOVTACK 	sendOVTack
+SYSLOGSNDCONTRL SyslogSndContrl
+MKEFTPUSERSFILE eftpglue save
+DBEXPORT	logview -l
+DBIMPORT	logadd -l
+SENDAUTACK	sendAUTACK

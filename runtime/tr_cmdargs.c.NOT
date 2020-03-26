@@ -1,0 +1,83 @@
+/*========================================================================
+        E D I S E R V E R
+
+        File:		tr_cmdargs.c
+        Author:		Juha Nurmela (JN)
+        Date:		Wed Apr 26 10:29:22 EET 1995
+
+        Copyright (c) 1995 Telecom Finland/EDI Operations
+
+	string `cmdline' is expanded and splitted into
+	command and argument vector.
+	The command is return value, arguments are inserted into array.
+========================================================================*/
+#include "conf/config.h"
+/*LIBRARY(libruntime_version)
+*/
+MODULE("@(#)TradeXpress runtime/tr_cmdargs 3.00 (26.04.95/JN)")
+/*========================================================================
+  Record all changes here and update the above string accordingly.
+  3.00 26.04.95/JN	Created.
+========================================================================*/
+
+#include <stdio.h>
+
+#include "tr_prototypes.h"
+
+extern char *TR_EMPTY;
+
+char *
+tf__CommandArgs(
+	char *array,    /* OUT */
+	char *cmdline,  /* IN  */
+	double index,   /* IN  _INDEX_ */
+	char *filename) /* IN  _FILE_  */
+{
+	char buf[1024];
+	int argc;
+	char **argv;
+	char *command;
+
+	tr_amtextremove(array);
+
+	if (argv == NULL || argv[0] == NULL) {
+		if (argv)
+			tr_free(argv);
+		return (TR_EMPTY);
+	}
+	command = tr_MemPool(argv[0]);
+	tr_free(argv[0]);
+
+	for (argc = 1; argv[argc]; ++argc) {
+
+		if (!strcmp(argv[argc], "_INDEX_")) {
+			sprintf(buf, "%.0lf", index);
+			tr_amtextset(array,
+				tr_IntIndex(argc),
+				buf);
+		}
+		else
+		if (!strcmp(argv[argc], "_FILE_")) {
+			tr_amtextset(array,
+				tr_IntIndex(argc),
+				file);
+		}
+		else
+		if (!strcmp(argv[argc], "_PARAMFILE_")) {
+			sprintf(buf, "-p%.0lf", index);
+			tr_amtextset(array,
+				tr_IntIndex(argc),
+				file);
+		}
+		else {
+			tr_amtextset(array,
+				tr_IntIndex(argc),
+				argv[argc]);
+		}
+		tr_free(argv[argc]);
+	}
+	tr_free(argv);
+
+	return (command);
+}
+

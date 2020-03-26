@@ -1,0 +1,270 @@
+/*
+ * 20.04.2011/CMA split library for external link (c/c++ program) to logsystem lib
+ * Jira TX-3143 24.09.2019 - Olivier REMAUD - Passage au 64 bits
+ */
+
+#ifdef MEMDEBUG
+#define MEMDEBUGOBJ
+#endif
+#include "debug.mk"
+#include "sqlite.mk"
+
+CFLAGS =
+#ifdef MACHINE_WNT
+NTADD = tr_regcmpown.$(OBJSFX) tr_ftruncate.$(OBJSFX) tr_sleep.$(OBJSFX) tr_comparepaths.$(OBJSFX)
+CFLAGS=$(DEBUG_FLAGS) -DSTDC_HEADERS -DREGEX_MALLOC
+Library(libregex, posix_regex.$(OBJSFX))
+#else
+CFLAGS=$(DEBUG_FLAGS) 
+#endif
+
+AllDepend($S/tr_strings.h $S/tr_prototypes.h)
+
+SimpleLib(tr_prototypes.h)
+SimpleLib(tr_externals.h)
+SimpleLib(tr_logsystem.h)
+
+PlainSource(tr_accounts)
+PlainSource(tr_adjustDS)
+PlainSource(tr_alarm)
+PlainSource(tr_amcopy)
+PlainSource(tr_arrays)
+PlainSource(tr_bufwrite)
+PlainSource(tr_buildtext)
+PlainSource(tr_codeconv)
+PlainSource(tr_counter)
+PlainSource(tr_gcounter)
+PlainSource(tr_dbparms)
+PlainSource(tr_copyarr)
+PlainSource(tr_debug)
+PlainSource(tr_deperror)
+PlainSource(tr_dirfixup)
+PlainSource(tr_divide)
+PlainSource(tr_encoding)
+PlainSource(tr_execcmd)
+PlainSource(tr_execlp)
+PlainSource(tr_execvp)
+PlainSource(tr_fileread)
+PlainSource(tr_fileop)
+PlainSource(tr_filepath)
+PlainSource(tr_filereopen)
+PlainSource(tr_filewrite)
+PlainSource(tr_getfp)
+PlainSource(tr_getopt)
+PlainSource(tr_getuniq)
+PlainSource(tr_incerror)
+PlainSource(tr_index_len)
+PlainSource(tr_in_segdefault)
+PlainSource(tr_isempty)
+PlainSource(tr_linematcher)
+PlainSource(tr_list)
+PlainSource(tr_load)
+PlainSource(tr_loaddef)
+PlainSource(tr_locale)
+PlainSource(tr_log)
+PlainSource(tr_logsyslocal)
+PlainSource(tr_logsysrem)
+PlainSource(tr_logsysstub)
+PlainSource(tr_main)
+PlainSource(tr_makeindex)
+PlainSource(tr_mblength)
+PlainSource(tr_mbstrchr)
+PlainSource(tr_mbstreams)
+PlainSource(tr_mbtolower)
+PlainSource(tr_memory)
+PlainSource(tr_msgdeperror)
+PlainSource(tr_out_segdefault)
+PlainSource(tr_pack)
+PlainSource(tr_packelems)
+PlainSource(tr_peel)
+PlainSource(tr_pick)
+PlainSource(tr_printmsg)
+PlainSource(tr_printnum)
+PlainSource(tr_parsetime)
+PlainSource(tr_readdir)
+PlainSource(tr_regcomp)
+PlainSource(tr_regexec)
+PlainSource(tr_REmatcher)
+PlainSource(tr_replace)
+PlainSource(tr_REsplit)
+PlainSource(tr_rte_globals)
+PlainSource(tr_save)
+PlainSource(tr_skipchars)
+PlainSource(tr_set_in_variables)
+PlainSource(tr_set_out_variables)
+PlainSource(tr_setcharset)
+PlainSource(tr_signal)
+PlainSource(tr_split)
+PlainSource(tr_strcmp)
+PlainSource(tr_strcsep)
+PlainSource(tr_striprc)
+PlainSource(tr_segdefault)
+PlainSource(tr_separstr)
+PlainSource(tr_strip)
+PlainSource(tr_strstr)
+PlainSource(tr_strtext)
+PlainSource(tr_strtoupr)
+PlainSource(tr_switch)
+PlainSource(tr_system)
+PlainSource(tr_textopt)
+PlainSource(tr_texttonum)
+PlainSource(tr_time)
+PlainSource(tr_timestring)
+PlainSource(tr_wildmat)
+
+PlainSource(tfTempnam)
+PlainSource(bfUserSIGALRM)
+PlainSource(bfUserSIGHUP)
+PlainSource(bfUserSIGINT)
+PlainSource(bfUserSIGQUIT)
+PlainSource(bfUserSIGTERM)
+
+PlainSource(tr_exceptions)
+#ifdef MACHINE_WNT
+PlainSource(tr_comparepaths)
+PlainSource(tr_ftruncate)
+PlainSource(tr_regcmpown)
+PlainSource(tr_sleep)
+
+PlainSource(posix_regex)
+#endif
+
+/* Redefines the multiseparator by default, specially for the edisend program */
+Object(tr_main_multi_sep_007,tr_main,$S/tr_main.c,-DMULTI_SEP_007)
+
+SIGNALOBJS= \
+	bfUserSIGALRM.$(OBJSFX) \
+	bfUserSIGHUP.$(OBJSFX) \
+	bfUserSIGINT.$(OBJSFX) \
+	bfUserSIGQUIT.$(OBJSFX) \
+	bfUserSIGTERM.$(OBJSFX)
+
+Library(libruntime, \
+	version.$(OBJSFX) \
+	$(DEBUGOBJ) \
+	tr_getopt.$(OBJSFX) \
+	tr_accounts.$(OBJSFX) \
+	tr_alarm.$(OBJSFX) \
+	tr_amcopy.$(OBJSFX) \
+	tr_arrays.$(OBJSFX) \
+	tr_bufwrite.$(OBJSFX) \
+	tr_buildtext.$(OBJSFX) \
+	tr_codeconv.$(OBJSFX) \
+	tr_dbparms.$(OBJSFX) \
+	tr_copyarr.$(OBJSFX) \
+	tr_REsplit.$(OBJSFX) \
+	tr_counter.$(OBJSFX) \
+	tr_gcounter.$(OBJSFX) \
+	tr_debug.$(OBJSFX) \
+	tr_dirfixup.$(OBJSFX) \
+	tr_divide.$(OBJSFX) \
+	tr_encoding.$(OBJSFX) \
+	tr_execlp.$(OBJSFX) \
+	tr_execvp.$(OBJSFX) \
+	tr_execcmd.$(OBJSFX) \
+	tr_fileread.$(OBJSFX) \
+	tr_fileop.$(OBJSFX) \
+	tr_filepath.$(OBJSFX) \
+	tr_filereopen.$(OBJSFX) \
+	tr_filewrite.$(OBJSFX) \
+	tr_getfp.$(OBJSFX) \
+	tr_index_len.$(OBJSFX) \
+	tr_isempty.$(OBJSFX) \
+	tr_list.$(OBJSFX) \
+	tr_load.$(OBJSFX) \
+	tr_loaddef.$(OBJSFX) \
+	tr_locale.$(OBJSFX) \
+	tr_log.$(OBJSFX) \
+	tr_logsysrem.$(OBJSFX) \
+	tr_main.$(OBJSFX) \
+	tr_makeindex.$(OBJSFX) \
+	tr_mblength.$(OBJSFX) \
+	tr_mbstrchr.$(OBJSFX) \
+	tr_mbstreams.$(OBJSFX) \
+	tr_mbtolower.$(OBJSFX) \
+	tr_memory.$(OBJSFX) \
+	tr_adjustDS.$(OBJSFX) \
+	tr_pack.$(OBJSFX) \
+	tr_packelems.$(OBJSFX) \
+	tr_pick.$(OBJSFX) \
+	tr_printmsg.$(OBJSFX) \
+	tr_printnum.$(OBJSFX) \
+	tr_parsetime.$(OBJSFX) \
+	tr_timestring.$(OBJSFX) \
+	tr_readdir.$(OBJSFX) \
+	tr_rte_globals.$(OBJSFX) \
+	tr_save.$(OBJSFX) \
+	tr_skipchars.$(OBJSFX) \
+	tr_signal.$(OBJSFX) \
+	tr_split.$(OBJSFX) \
+	tr_strcmp.$(OBJSFX) \
+	tr_strcsep.$(OBJSFX) \
+	tr_striprc.$(OBJSFX) \
+	tr_separstr.$(OBJSFX) \
+	tr_strstr.$(OBJSFX) \
+	tr_strtext.$(OBJSFX) \
+	tr_strtoupr.$(OBJSFX) \
+	tr_system.$(OBJSFX) \
+	tr_switch.$(OBJSFX) \
+	tr_textopt.$(OBJSFX) \
+	tr_texttonum.$(OBJSFX) \
+	tr_time.$(OBJSFX) \
+	tr_regcomp.$(OBJSFX) \
+	tr_regexec.$(OBJSFX) \
+	tr_replace.$(OBJSFX) \
+	tr_strip.$(OBJSFX) \
+	tr_peel.$(OBJSFX) \
+	tr_incerror.$(OBJSFX) \
+	tr_deperror.$(OBJSFX) \
+	tr_segdefault.$(OBJSFX) \
+	tr_out_segdefault.$(OBJSFX) \
+	tr_in_segdefault.$(OBJSFX) \
+	tr_linematcher.$(OBJSFX) \
+	tr_logsyslocal.$(OBJSFX) \
+	tr_logsysstub.$(OBJSFX) \
+	tfTempnam.$(OBJSFX) \
+	tr_msgdeperror.$(OBJSFX) \
+	tr_setcharset.$(OBJSFX) \
+	$(NTADD) \
+	tr_set_out_variables.$(OBJSFX) \
+	tr_set_in_variables.$(OBJSFX) \
+	tr_REmatcher.$(OBJSFX) \
+	tr_getuniq.$(OBJSFX) \
+	tr_wildmat.$(OBJSFX) \
+	$(SIGNALOBJS) \
+	tr_exceptions.$(OBJSFX) \
+)
+
+Library(libtr_oftp, \
+	version.$(OBJSFX) \
+	tr_buildtext.$(OBJSFX) \
+	tr_arrays.$(OBJSFX) \
+	tr_isempty.$(OBJSFX) \
+	tr_logsysrem.$(OBJSFX) \
+	tr_memory.$(OBJSFX) \
+	tr_adjustDS.$(OBJSFX) \
+	tr_parsetime.$(OBJSFX) \
+	tr_printnum.$(OBJSFX) \
+	tr_linematcher.$(OBJSFX) \
+	tr_log.$(OBJSFX) \
+	tr_REmatcher.$(OBJSFX) \
+	tr_dirfixup.$(OBJSFX) \
+	tr_getuniq.$(OBJSFX) \
+	tr_readdir.$(OBJSFX) \
+	tr_strcmp.$(OBJSFX) \
+	tr_texttonum.$(OBJSFX) \
+	tr_timestring.$(OBJSFX) \
+	$(SIGNALOBJS) \
+)
+
+Library(libtr_time, \
+        version.$(OBJSFX) \
+        tr_parsetime.$(OBJSFX) \
+        tr_timestring.$(OBJSFX) \
+)
+
+Library(libtr_exception, \
+        version.$(OBJSFX) \
+        tr_exceptions.$(OBJSFX) \
+)
+

@@ -1,0 +1,20 @@
+CC=cc -g
+CFLAGS=-DEDISERVER_C=3013 -I/data1/home/jlebiannic/lib -I/data1/home/jlebiannic/DEVEL/TX5_2_UNICODE/Linux/lib 
+LDFLAGS=-L/usr/pgsql-12/lib -L/data1/home/jlebiannic/lib -L/data1/home/jlebiannic/DEVEL/TX5_2_UNICODE/Linux/lib -lruntime -ledi -lrls -ltdxdao -lpq -llogsystem -lpthread -ldl -lruntime -lm 
+EXEC=TstBaseAccess2
+
+all: cleanAll $(EXEC)
+
+TstBaseAccess2: TstBaseAccess2.o 
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+TstBaseAccess2.o: TstBaseAccess2.c
+	$(CC) -o TstBaseAccess2.o -c TstBaseAccess2.c $(CFLAGS)
+
+clean:
+	rm -rf *.o
+
+cleanAll: clean
+	rm -rf $(EXEC)
+
+

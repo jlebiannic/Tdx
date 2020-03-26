@@ -1,0 +1,17 @@
+#!/bin/sh
+
+cd "$EDIHOME/bin" || exit
+
+
+echo "
+Starting logd from `pwd`..."
+
+
+if [ -f $EDIHOME/lib/userenv ]
+then
+	. $EDIHOME/lib/userenv
+fi
+
+$EDIHOME/bin/perhost
+
+

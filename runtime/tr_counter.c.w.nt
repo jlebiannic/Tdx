@@ -1,0 +1,452 @@
+/*==========================================================================
+	E D I S E R V E R   T R A N S L A T O R
+
+	File:		tr_counter.c
+	Programmer:	Mikko Valimaki (MV)
+	Date:		Fri Oct  9 11:01:41 EET 1992
+==========================================================================*/
+/*LIBRARY(libruntime_version)
+*/
+/*==========================================================================
+  Record all changes here and update the above string accordingly.
+  3.00 12.01.93/MV	Created
+  3.01 05.08.94/MW	tr_fclose added to avoid "Too many files open" (24)
+  3.02 27.11.96/JN	Simplified, NT compatlib removal.
+  4.00 08.11.05/LM	Added bfSetCounter
+  5.00 30.08.12/SCh(CG) TX-2295 : Add a possibility to limit the upper bound
+                                  of the counter.
+  5.10 28.03.17/CD TX-2960 : rewrite the counters for eftp bad connections.
+	                 add possibility to set the directory for the counters
+==========================================================================*/
+
+#include <stdio.h>
+#include <windows.h>
+#include <sys/types.h>
+#include <string.h>
+#include <errno.h>
+#include <io.h>
+
+#include "tr_prototypes.h"
+#include "tr_strings.h"
+
+double tr_getcounterlimitedInc_with_dir(char *cptdir, char *name, double max, double increment);
+
+extern int errno;
+
+/* -------------------------------------------------------------------------- */
+/*  double tr_getcounterNoIncrement(char *cptdir, char *name)                 */
+/*                                                                            */
+/*  INPUTS :                                                                  */
+/*         name : name of the file that store the current value of the counter*/
+/*  OUTPUTS :                                                                 */
+/*         Returns the value of the counter name in directory cptdir          */
+/*                                                                            */
+/*  Call tr_getcounterlimitedInc() with 0 as third argument in order to manage  */
+/*  a counter without limit (execept the double type limit)                   */
+/* -------------------------------------------------------------------------- */
+double
+tr_getcounterNoIncrement(char *name)
+{
+/* SCh : TX-2295                                                              */
+   return(tr_getcounterlimitedInc_with_dir(NULL,name, 0.0L, 0.0L));
+/* SCh : fin TX-2295                                                          */
+}
+
+/* -------------------------------------------------------------------------- */
+/*  double tr_getcounter_with_dir(char *cptdir,  char *name)                  */
+/*                                                                            */
+/*  INPUTS :                                                                  */
+/*         cptdir: counters directory, if NULL, use $HOME/.counters           */
+/*         name : name of the file that store the current value of the counter*/
+/*  OUTPUTS :                                                                 */
+/*         Returns the value of the counter name in directory cptdir          */
+/*                                                                            */
+/*  Call tr_getcounterlimited() with 0 as second argument in order to manage  */
+/*  a counter without limit (execept the double type limit)                   */
+/* -------------------------------------------------------------------------- */
+
+double
+tr_getcounter_with_dir(char *cptdir, char *name)
+{
+/* SCh : TX-2295                                                              */
+   return (tr_getcounterlimitedInc_with_dir(cptdir, name, 0.0L,1.0L));
+/* SCh : fin TX-2295                                                          */
+}
+
+/* -------------------------------------------------------------------------- */
+/*  double tr_getcounter(char *name)                                         */
+/*                                                                            */
+/*  INPUTS :                                                                  */
+/*         name : name of the file that store the current value of the counter*/
+/*  OUTPUTS :                                                                 */
+/*         Returns the value of the counter name in default .counter directory*/
+/*                                                                            */
+/*  Call tr_getcounter_with_dir() with NULL as first argument in order to manage  */
+/*  a counter in the default .counters directory                              */
+/* -------------------------------------------------------------------------- */
+
+double
+tr_getcounter(char *name) {
+   return(tr_getcounter_with_dir(NULL,name));
+}
+
+/* -------------------------------------------------------------------------- */
+
+
+/* -------------------------------------------------------------------------- */
+/*  HANDLE tr_opencounterfile(char *cptdir, char *name; char *file)           */
+/*                                                                            */
+/*  INPUTS :                                                                  */
+/*         cptdir: counters directory, if NULL, use $HOME/.counters           */
+/*         name : name of the file that store the current value of the counter*/
+/*  OUTPUTS :                                                                 */
+/*         file : full access path to the counter file                        */
+/*         Returns a handler on the opened counter file or NULL               */
+/*                                                                            */
+/*  Concaternate all the necessary variable to get the full counter file path */
+/*  and try to open it. Return a handler on the open file or NULL             */
+/* -------------------------------------------------------------------------- */
+HANDLE tr_opencounterfile(char *cptdir, char *name, char *file, DWORD CreationDisposition)
+{
+	char *cp;
+	int errc;
+	HANDLE h = NULL;
+
+ if (cptdir == NULL) {
+    /* TX-2960 CD cptdir was not specified */
+
+    /* if HOME environment variable is not set                                */
+			if ((cp = getenv ("HOME")) == NULL)
+			{
+				/* if HOMEDRIVE environment variable is not set                       */
+				/*    Set current path to disk root C:                                */
+				/* endif                                                              */
+				if ((cp = getenv("HOMEDRIVE")) == NULL)
+				{
+					cp = "C:";
+				}
+				/* start building the full acces to the counter file name             */
+				strcpy(file, cp);
+
+				/* if HOMEPATH env. variable is set with a value different form "\\"  */
+				/*    Add HOMEPATH value at the end of counter file name              */
+				/* endif                                                              */
+				if ((cp = getenv("HOMEPATH")) != NULL && strcmp(cp, "\\") != 0)
+				{
+					strcat(file, cp);
+				}
+			}
+		    /* else HOME environment variable is set                                 */
+			/*    take its value as the counter file name path                       */
+			else
+			{
+				strcpy(file, cp);
+			}
+		    /* endif                                                                 */
+
+		    /* Complete the counter file path with the usual Tdx directory name      */
+			strcat(file, "\\");
+			strcat(file, TR_DIR_COUNTERS);
+	} else {
+	  /* TX-2960 CD cptdir was specified, it points to directory containing the counters */
+	  strcat(file, cptdir);
+	}
+    /* Try to create the Tdx counters directory name                         */
+	/* and manage the failure                                                */
+	errc=mkdir(file, 0777);
+	if (errc==-1 && errno!=EEXIST)
+	{
+		tr_Log("ERROR creating %s for counter %s (%d)",file,name,errno);
+	}
+
+    /* Complete the full counter file path by adding the file name given     */
+	strcat(file, "\\");
+	strcat(file, name);
+
+    /* Try to create the counter file                                        */
+	/* and manage the failure if exists                                      */
+	if ((h = CreateFile(file,
+	                    GENERIC_READ | GENERIC_WRITE,
+	                    FILE_SHARE_READ | FILE_SHARE_WRITE,
+	                    NULL,
+	                    CreationDisposition,
+	                    FILE_ATTRIBUTE_NORMAL,
+	                    NULL)) == INVALID_HANDLE_VALUE)
+	{
+		tr_Log(TR_WARN_FILE_W_OPEN_FAILED, file, GetLastError());
+	}
+
+	/* Return the handler on the open file if openning succeeded or NULL      */
+	return (h);
+}
+/* -------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------- */
+/*  double tr_getcounterlimitedInc_with_dir(char *cptdir, char *name, double max, double increment)     */
+/*                                                                            */
+/*  INPUTS :                                                                  */
+/*         cptdir: counters directory, if NULL, use $HOME/.counters           */
+/*         name : name of the file that store the current value of the counter*/
+/*         max  : upper bound of the counter where it is rewind to 0          */
+/*		   increment : counter is incremented by this value					  */
+/*  OUTPUTS :                                                                 */
+/*         Returns the incremented value of the counter                       */
+/*                                                                            */
+/*  Read the value of the counter in a dedicated file of the RTE counters sub-*/
+/*  directory, increment it by 1 and write it back into the file.  			  */
+/*  if the counter value reach the given bound (max) rewind it to 0           */
+/* -------------------------------------------------------------------------- */
+double
+tr_getcounterlimitedInc_with_dir(char *cptdir, char *name, double max, double increment)
+{
+	char   buf[256]   = "";                   /* string format of the counter */
+	char   file[1028] = "";                   /* full counter file path       */
+	double value      = 0.0L;                 /* return value                 */
+	HANDLE h          = NULL;                 /* file handle                  */
+	DWORD  n          = 0;                    /* number of bytes to write     */
+	DWORD  m          = 0;                    /* number of bytes written      */
+	int    retries    = 0;                    /* counter for retries          */
+/*  SCh : TX-2295                                                             */
+	char   maxbuf[256]= "";                   /* string format of max         */
+	int    maxbuflen  = 0;                    /* tmpbuf length (of max)       */
+/*  SCh : fin TX-2295                                                         */
+
+
+	/* Try to open the counter file                                           */
+    h = tr_opencounterfile(cptdir, name, file, OPEN_ALWAYS);
+	if ((h == NULL) || (h == INVALID_HANDLE_VALUE))
+	{
+		return(value);
+	}
+
+	/* initialize the retry counter                                           */
+	retries = 0;
+retry:
+    /* if it is not possible to lock the acces to the counter file            */
+	/*    if the incremented retry counter does reach it's limit              */
+	/*       wait for a while and try again locking the file                  */
+	/*    else                                                                */
+	/*       log the failure                                                  */
+	/*    endif                                                               */
+	if (!LockFile(h, 0, 0, 1, 0))
+	{
+		if (++retries <= 8)
+		{
+			Sleep(retries);
+			goto retry;
+		}
+		tr_Log(TR_WARN_LOCKING_FAILED, file, GetLastError());
+	}
+	/* else                                                                   */
+	else
+	{
+		if (!ReadFile(h, buf, sizeof(buf) - 1, &n, NULL))
+		{
+			n = 0;
+		}
+		buf[n] = 0;
+
+		sscanf(buf, "%lf", &value);
+
+		if (SetFilePointer(h, 0, NULL, FILE_BEGIN) != 0)
+		{
+			tr_Log (TR_WARN_SEEK_FAILED);
+		}
+		else
+		{
+/*  SCh : TX-2295                                                             */
+			/* For limited counter :                                          */
+			/* if a max value has been given                                  */
+			/*    if the counter value exceeds it                             */
+			/*       rewind counter to 0                                      */
+			/*       Justify right buf to write in the file padding with 0    */
+			/*    else                                                        */
+			/*       increment the counter                                    */
+			/*       Justify right buf to write in the file padding with 0    */
+			/*    endif                                                       */
+			/* else                                                           */
+			/*    increment the counter                                       */
+			/* endif                                                          */
+			sprintf(maxbuf, "%.0lf", max);
+			maxbuflen = strlen(maxbuf);
+			if (max > 0.9L)
+			{
+				if (value >= max)
+				{
+					value = 0.0L;
+				}
+				sprintf(buf, "%0*.0lf\n", maxbuflen, value+increment);
+			}
+			else
+			{
+				sprintf(buf, "%.0lf\n", value+increment);
+			}
+
+			/*  SCh : fin TX-2295                                             */
+
+			/* Try to update the counter value in the file and process the    */
+			/* failure if any by logging it, else set the return flag to OK   */
+
+			n = strlen(buf);
+			if (!WriteFile(h, buf, n, &m, NULL) || m != n)
+			{
+				tr_Log(TR_WARN_FILE_W_OPEN_FAILED, file, GetLastError());
+			}
+		}
+		/* endif                                                              */
+		/* Unlock the acces to counter file                                   */
+		UnlockFile(h, 0, 0, 1, 0);
+	}
+
+	/* endif                                                                  */
+	/* close the counter file and return the status of the process            */
+	CloseHandle(h);
+
+	return (value);
+}
+/* -------------------------------------------------------------------------- */
+
+
+/* -------------------------------------------------------------------------- */
+/*  double tr_getcounterlimitedInc(char *name, double max, double increment)  */
+/*                                                                            */
+/*  INPUTS :                                                                  */
+/*         name : name of the file that store the current value of the counter*/
+/*         max  : upper bound of the counter where it is rewind to 0          */
+/*		   increment : counter is incremented by this value					  */
+/*  OUTPUTS :                                                                 */
+/*         Returns the incremented value of the counter                       */
+/*                                                                            */
+/*  Read the value of the counter in a dedicated file of the RTE counters sub-*/
+/*  directory, increment it by 1 and write it back into the file.  			  */
+/*  if the counter value reach the given bound (max) rewind it to 0           */
+/* -------------------------------------------------------------------------- */
+double
+tr_getcounterlimitedInc(char *name, double max, double increment)
+{
+	return(tr_getcounterlimitedInc_with_dir(NULL,name,max,increment));
+}
+
+
+/* -------------------------------------------------------------------------- */
+/*  double tr_getcounterlimited(char *name, double max)         */
+/*                                                                            */
+/*  INPUTS :                                                                  */
+/*         name : name of the file that store the current value of the counter*/
+/*         max  : upper bound of the counter where it is rewind to 0          */
+/*  OUTPUTS :                                                                 */
+/*         Returns the incremented value of the counter                       */
+/*                                                                            */
+/*  Read the value of the counter in a dedicated file of the RTE counters sub-*/
+/*  directory, increment it by 1 and write it back into the file.  			  */
+/*  if the counter value reach the given bound (max) rewind it to 0           */
+/* -------------------------------------------------------------------------- */
+double
+tr_getcounterlimited(char *name, double max)
+{
+	return tr_getcounterlimitedInc_with_dir(NULL,name,max,1.0L);
+}
+/* -------------------------------------------------------------------------- */
+
+
+/* -------------------------------------------------------------------------- */
+/*  int tr_setcounter_with_dir(char *cptdir, char *name, double value)        */
+/*                                                                            */
+/*  INPUTS :                                                                  */
+/*         cptdir: counters directory, if NULL, use $HOME/.counters           */
+/*         name : name of the file that store the current value of the counter*/
+/*         value: new value of the counter.                                   */
+/*  OUTPUTS :                                                                 */
+/*         Returns 0 if failed or 1 if succeeded in updating the counter      */
+/*                                                                            */
+/*  Set the current value of the counter with the value given as a parameter  */
+/* -------------------------------------------------------------------------- */
+int
+tr_setcounter_with_dir(char *cptdir, char *name, double value)
+{
+	char   buf[256]   = "";                   /* string format of the counter */
+	char   file[1028] = "";                   /* full counter file path       */
+	int    result     = 0;                    /* return value                 */
+	HANDLE h          = NULL;                 /* file handle                  */
+	DWORD  n          = 0;                    /* number of bytes to write     */
+	DWORD  m          = 0;                    /* number of bytes written      */
+	int    retries    = 0;                    /* counter for retries          */
+
+
+	/* Try to open the counter file                                           */
+    h = tr_opencounterfile(cptdir,name, file, CREATE_ALWAYS);
+	if ((h == NULL) || (h == INVALID_HANDLE_VALUE))
+	{
+		return(result);
+	}
+
+retry:
+    /* if it is not possible to lock the acces to the counter file            */
+	/*    if the incremented retry counter does reach it's limit              */
+	/*       wait for a while and try again locking the file                  */
+	/*    else                                                                */
+	/*       log the failure                                                  */
+	/*    endif                                                               */
+	if (!LockFile(h, 0, 0, 1, 0))
+	{
+		if (++retries <= 8)
+		{
+			Sleep(retries);
+			goto retry;
+		}
+		tr_Log(TR_WARN_LOCKING_FAILED, file, GetLastError());
+	}
+	/* else                                                                   */
+	else
+	{
+		/* if seekint the counter value in the file fails                     */
+		/*    log the failure                                                 */
+		if (SetFilePointer(h, 0, NULL, FILE_BEGIN) != 0)
+		{
+			tr_Log (TR_WARN_SEEK_FAILED);
+		}
+		/* else                                                               */
+		else
+		{
+			/* Try to update the counter value in the file and process the    */
+			/* failure if any by logging it, else set the return flag to OK   */
+			sprintf(buf, "%.0lf\n", value);
+			n = strlen(buf);
+			if (!WriteFile(h, buf, n, &m, NULL) || m != n)
+			{
+				tr_Log(TR_WARN_FILE_W_OPEN_FAILED, file, GetLastError());
+			}
+			else
+			{
+				result = 1;
+			}
+		}
+		/* endif                                                              */
+
+		/* Unlock the acces to counter file                                   */
+		UnlockFile(h, 0, 0, 1, 0);
+	}
+	/* endif                                                                  */
+	/* close the counter file and return the status of the process            */
+	CloseHandle(h);
+	return (result);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  int tr_setcounter(char *name, double value)                               */
+/*                                                                            */
+/*  INPUTS :                                                                  */
+/*         name : name of the file that store the current value of the counter*/
+/*         value: new value of the counter.                                   */
+/*  OUTPUTS :                                                                 */
+/*         Returns 0 if failed or 1 if succeeded in updating the counter      */
+/*                                                                            */
+/*  Set the current value of the counter with the value given as a parameter  */
+/* -------------------------------------------------------------------------- */
+
+int
+tr_setcounter(char *name, double value) {
+   return(tr_setcounter_with_dir(NULL,name,value));
+}
+
+/* - EOF -------------------------------------------------------------------- */

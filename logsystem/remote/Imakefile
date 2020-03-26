@@ -1,0 +1,173 @@
+/*
+* ===========================================================================!
+*  Fichier: Makefile logsystem/remote                                 GENERIX group !
+* ---------------------------------------------------------------------------!
+*  Fonctions:                                                                !
+*                                                                            !
+* ---------------------------------------------------------------------------!
+*  Modifications:                                                            !
+* ---------------------------------------------------------------------------!
+*  30/05/2008 CRE Adding headers
+*  30/05/2008 CRE Adding rlsfileformat
+*  30/05/2008 CRE Add NetApi32.lib for Win32
+*  Jira TX-3143 24.09.2019 - Olivier REMAUD - Passage au 64 bits
+* ===========================================================================!
+ */
+
+#include "sqlite.mk"
+
+#if defined(MACHINE_LINUX) || defined(MACHINE_AIX) || defined(MACHINE_SOLARIS)
+THREADFLAGS=-lpthread -ldl
+#endif
+
+ORAPATH=../../dbsys/oracle
+Uses(../../dbsys $(ORAPATH) ../../rlslib ../lib ../../misc)
+ODBOBJS=$(ORAPATH)/5odbsysops.$(OBJSFX) $(ORAPATH)/libodbsys.$(LIBSFX) ../../dbsys/libstxdbsys.$(LIBSFX)
+
+#ifdef MACHINE_WNT
+LINK=-PDB:NONE
+NETAPILIB=NetAPI32.$(LIBSFX)
+#else
+NETAPILIB=
+#endif
+
+#include <oracle/oci/oci.mk>
+LDFLAGS=$(OCIFLAGS) $(THREADFLAGS)
+CFLAGS=$(COPTIM) $(OCIINC)
+
+LDLIBS = $(NETLIBS) $(UIDLIBS)
+
+#
+#  Specific basetypes
+#  One xxxops.o for immediate linking and
+#  one xxxops.libes for additional libraries during link.
+#
+
+Object(7legacyops,legacyops,$S/logsysrem.h,$(EMPTY))
+
+SimpleLibSubS(logd,legacyops.libes)
+SimpleLibSubS(logd,legacyops.nt.libes)
+SimpleLibSubO(logd,7legacyops.$(OBJSFX))
+ 
+#
+#  Common stuff
+#
+#  Ordering of xxxops-objects is important on some platforms,
+#  initialization order depends from linkage order.
+#
+
+#ifdef MACHINE_WNT
+SimpleProgram(svctool)
+Object(relink_logd,WNT/relink_logd,$(EMPTY),$(EMPTY))
+PlainProgram(relink_logd, relink_logd.$(OBJSFX))
+#else
+SimpleScript(relink_logd)
+SimpleScript(start_logd)
+SimpleScript(stop_logd)
+#endif
+
+Library(liblogd, \
+	netstuff.$(OBJSFX) \
+	rlsfileformat.$(OBJSFX) \
+	baseops.$(OBJSFX) \
+	paramfiles.$(OBJSFX) \
+	expand.$(OBJSFX) \
+	executions.$(OBJSFX) \
+	perr.$(OBJSFX) \
+	nilops.$(OBJSFX) \
+)
+
+PlainTarget(perhost, perhost.$(OBJSFX) perr.$(OBJSFX) rlsfileformat.$(OBJSFX) ../../misc/config.$(OBJSFX),$(EMPTY),$(NETAPILIB))
+
+#ifdef CDEM64
+
+#   suppression pour commencer le travail de compilation 64bits
+
+PlainTarget(peruseroracust, \
+	initbaseora.$(OBJSFX) \
+	liblogd.$(LIBSFX) \
+	$(ORAPATH)/5odbsysops.$(OBJSFX) \
+	7legacyops.$(OBJSFX) \
+	$(ORAPATH)/libodbsys.$(LIBSFX) \
+	../../dbsys/libstxdbsys.$(LIBSFX) \
+	../lib/liblogsystem.$(LIBSFX) \
+	../../runtime/libruntime.$(LIBSFX) \
+	../../misc/config.$(OBJSFX), \
+	$(OCIFLAGS),$(OCILIBS) \
+)
+
+PlainTarget(peruserora, \
+	netstuff.$(OBJSFX) \
+	rlsfileformat.$(OBJSFX) \
+	baseops.$(OBJSFX) \
+	initbaseora.$(OBJSFX) \
+	paramfiles.$(OBJSFX) \
+	expand.$(OBJSFX) \
+	executions.$(OBJSFX) \
+	perr.$(OBJSFX) \
+	nilops.$(OBJSFX) \
+	7legacyops.$(OBJSFX) \
+	$(ODBOBJS) \
+	../lib/liblogsystem.$(LIBSFX) \
+	../../runtime/libruntime.$(LIBSFX) \
+	../../misc/config.$(OBJSFX), \
+	$(OCIFLAGS), $(OCILIBS) \
+)
+
+#endif /*CDEM*/
+
+PlainProgram(peruserstd, \
+	netstuff.$(OBJSFX) \
+	rlsfileformat.$(OBJSFX) \
+	baseops.$(OBJSFX) \
+	initbasestd.$(OBJSFX) \
+	paramfiles.$(OBJSFX) \
+	expand.$(OBJSFX) \
+	executions.$(OBJSFX) \
+	perr.$(OBJSFX) \
+	rem_globals.$(OBJSFX) \
+	nilops.$(OBJSFX) \
+	7legacyops.$(OBJSFX) \
+	../../runtime/libruntime.$(LIBSFX) \
+	../lib/liblogsystem.$(LIBSFX) \
+	../../runtime/libruntime.$(LIBSFX) \
+	../../bottom/libedi.$(LIBSFX) \
+	../../rlslib/librls.$(LIBSFX)  \
+	../../misc/config.$(OBJSFX) \
+)
+
+PlainC(perhost,$(EMPTY))
+PlainC(perr,$(EMPTY))
+PlainC(rlsfileformat,$(EMPTY))
+PlainC(baseops,$(EMPTY))
+PlainC(netstuff,$(EMPTY))
+PlainC(rem_globals,$(EMPTY))
+PlainC(paramfiles,$(EMPTY))
+PlainC(initbase,$(EMPTY))
+PlainC(initbaseora,$(EMPTY))
+PlainC(initbasestd,$(EMPTY))
+PlainC(expand,$(EMPTY))
+PlainC(executions,$(EMPTY))
+PlainC(nilops,$(EMPTY))
+
+#ifdef MACHINE_WNT
+K=../../../lib/logd
+SimpleCopy(legacyops.nt.libes,$K/legacyops.nt.libes)
+SimpleOCopy(7legacyops.obj,$K/7legacyops.obj)
+#endif
+
+PlainC(rlstest,$(EMPTY))
+PlainProgram(rlstest, rlstest.$(OBJSFX) ../../rlslib/librls.$(LIBSFX))
+
+PlainC(rlslogpage,$(EMPTY))
+#ifdef MACHINE_WNT
+/* XXX as soon as we do upgrade from VC98, remove this because getopt is posix AND was integrated by MS */
+PlainC(getopt,$(EMPTY))
+PlainProgram(rlslogpage, rlslogpage.$(OBJSFX) getopt.$(OBJSFX) ../../rlslib/librls.$(LIBSFX))
+#else
+PlainProgram(rlslogpage, rlslogpage.$(OBJSFX) ../../rlslib/librls.$(LIBSFX))
+#endif
+
+PlainC(rlsping,$(EMPTY))
+PlainProgram(rlsping, rlsping.$(OBJSFX) ../../rlslib/librls.$(LIBSFX))
+

@@ -1,0 +1,29 @@
+base "syslog.cfg" SYSLOG
+begin
+    nI:=1
+    nSeq:=1
+    print("CREATION",NL)
+    while nI<=5000 do
+        SYSLOG:=new("/data1/home/jlebiannic/DEVEL/TX5_2_UNICODE/Linux/databases/syslog")
+        SYSLOG.INFO:=build("Test",nI:05)
+        SYSLOG.USERNUM:=nSeq
+        flush(SYSLOG)
+        nSeq++
+        if nSeq>10 then
+                nSeq:=1
+        endif
+        nI++
+    endwhile
+    print("AFFICHAGE",NL)
+    SYSLOG:=find("/data1/home/jlebiannic/DEVEL/TX5_2_UNICODE/Linux/databases/syslog")
+    while valid(SYSLOG) do
+        print(SYSLOG.INDEX," ",SYSLOG.INFO," ",SYSLOG.USERNUM,NL)
+        SYSLOG:=find()
+    endwhile
+    print("AFFICHAGE",NL)
+    SYSLOG:=find("/data1/home/jlebiannic/DEVEL/TX5_2_UNICODE/Linux/databases/syslog",INFO="Test014*")
+    while valid(SYSLOG) do
+        print(SYSLOG.INDEX," ",SYSLOG.INFO," ",SYSLOG.USERNUM,NL)
+        SYSLOG:=find()
+    endwhile
+endbegin

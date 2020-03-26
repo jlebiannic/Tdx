@@ -1,0 +1,16 @@
+base "syslog.cfg" SYS 
+
+begin
+
+        SYS :=new(sSYSLOG)
+        SYS := find(sSYSLOG, PARTNER="ORDERS", NEW="BGM_1001")
+        redirect(LOGGING, SYS.l)
+
+        log("PARTNERS ORDERS FOUND !",NL)
+        
+        SYS := find(sSYSLOG, PARTNER="PP", NEW="NN")
+        redirect(LOGGING, SYS.l2)
+	log("PARTNERS PP FOUND !",NL)
+
+endbegin
+

@@ -1,0 +1,277 @@
+/*========================================================================
+        E D I S E R V E R
+
+        File:		logsystem/removal.c
+        Author:		Juha Nurmela (JN)
+        Date:		Mon Oct  3 02:18:43 EET 1994
+
+        Copyright (c) 1994 Telecom Finland/EDI Operations
+
+	Reading and writing logsystem stuff.
+========================================================================*/
+#include "conf/local_config.h"
+MODULE("@(#)TradeXpress logsystem/removal         3.03 (09.08.99/JN,KP)")
+/*========================================================================
+  Record all changes here and update the above string accordingly.
+  3.00 03.10.94/JN	Created.
+  3.01 02.04.96/JN	LOGSYS_EXT_IS_DIR.
+  3.02 20.11.96/JN	Getting rid of Unix-lookalike lib for WNT.
+  3.03 09.08.99/KP	definition for LOGSYS_EXT_IS_DIR was missing... (!)
+========================================================================*/
+
+#include <stdio.h>
+#include <sys/types.h>
+#include <windows.h>
+
+#include "private.h"
+
+#define _REMOVAL_C
+#include "logsystem.sqlite.h"
+#undef _REMOVAL_C
+
+int sqlite_logentry_remove(LogSystem *log, LogIndex idx, char *extension)
+{
+	LogEntry *entry = sqlite_logentry_readindex(log, idx);
+	int rv = 0;
+
+	if (!entry)
+		return (-1);
+
+	if (extension)
+    {
+		/* Delete single file and release entry just read. */
+		rv = sqlite_logentry_removefiles(entry, extension);
+		sqlite_logentry_free(entry);
+	}
+    else
+    {
+		/* Delete all files and, if successfull,
+		 * try to remove the entry itself.
+		 * If all files cannot be removed, space of entry
+		 * has to be released here (destroy releases too). */
+		rv = sqlite_logentry_removefiles(entry, NULL);
+		if (rv == 0)
+			rv = sqlite_logentry_destroy(entry);
+		else
+			sqlite_logentry_free(entry);
+	}
+	return (rv);
+}
+
+/* when removing by filter, we can't do a DELETE WHERE "filters" directly 
+ * cause we must be sure we have destroy all extensions files for an entry 
+ * before proceeding to the DELETE */
+int sqlite_logsys_removebyfilter(LogSystem *log, LogFilter *lf, char *extension)
+{
+    LogIndex *indexes;
+    int matchingIndexes = 0;
+    int errors = 0;
+    int result = 0;
+
+    indexes = sqlite_logsys_list_indexed(log,lf);
+    
+	if (indexes == NULL)
+		return 0; /* no answer is not an error ? */
+	
+    while (indexes[matchingIndexes] != 0)
+    {
+        result = sqlite_logentry_remove(log,indexes[matchingIndexes],extension);
+        if (result == -1)
+            ++errors;
+        else
+            errors += result;
+        
+        matchingIndexes++;
+    }
+    
+	return (errors);
+}
+
+/*
+ * Remove the file with "extension" under index.
+ * extension in quotes, as it is not really an extension,
+ * but a subdirectory in .../files.
+ * That is, files are named for example like:
+ * .../users/demo/syslog/files/a/12345
+ *
+ * If extension is NULL, all files are removed.
+ *
+ * .../syslog/tmp/index.* and
+ * .../syslog/tmp/index   is also removed, just in case.
+ *
+ * Returns number of problems detected.
+ * If a directory or file did not exist, it is ok.
+ */
+int sqlite_logentry_removefiles(LogEntry *entry, char *extension)
+{
+	char *path;
+	char *base;
+	int rv = 0;
+
+	/* This gives us a static buffer long enough to hold any
+	 * valid path.
+	 * ALERT
+	 * Dont call any logsystem-functions
+	 * as long using `directory'. */
+	path = sqlite_logsys_filepath(entry->logsys, LSFILE_FILES);
+	base = path + strlen(path);
+
+	if (extension)
+    {
+        sprintf(base, "/%s/%d", extension, entry->idx);
+		if (unlink(path) && errno != 0 && errno != ENOENT)
+			++rv;
+	}
+    else
+    {
+		/* Removing all files under this index.
+		 * Scan through files-directory and try
+		 * to unlink index-file in every one. */
+		WIN32_FIND_DATA d;
+		HANDLE dirp;
+		int error = 0;
+		int namelen;
+		char *dname;
+		char namebuf[64];
+
+		sprintf(namebuf, "%d", entry->idx);
+		namelen = strlen(namebuf);
+
+		strcat(path, "/*");
+		dirp = FindFirstFile(path, &d);
+		path[strlen(path) - 2] = 0;
+
+		if (dirp == INVALID_HANDLE_VALUE)
+        {
+			if (GetLastError() != 0 && GetLastError() != ERROR_FILE_NOT_FOUND && GetLastError() != ERROR_PATH_NOT_FOUND)
+				++rv;
+        }
+		else
+        {
+			do
+			{
+				dname = d.cFileName;
+				/* Skip files which start with a dot.
+				 *
+				 * Do not take it as an error if
+				 * the file either does not exist,
+				 * or the directory we tried (dp->d_name)
+				 * was not a directory after all. */
+				if (*dname == '.')
+					continue;
+
+                sprintf(base, "/%s/%s", dname, namebuf);
+                if (unlink(path) != 0
+                 && GetLastError() != 0
+                 && GetLastError() != ERROR_FILE_NOT_FOUND
+                 && GetLastError() != ERROR_PATH_NOT_FOUND
+                )
+                {
+                    ++rv;
+                    if (error == 0)
+                        error = errno;
+                }
+			}
+			while (FindNextFile(dirp, &d));
+			FindClose(dirp);
+		}
+		/* Run thru tmp directory too
+		 * for .../tmp/index.* */
+		path = sqlite_logsys_filepath(entry->logsys, LSFILE_TMP);
+		base = path + strlen(path);
+
+		strcat(path, "/*");
+		dirp = FindFirstFile(path, &d);
+		path[strlen(path) - 2] = 0;
+		if (dirp == INVALID_HANDLE_VALUE)
+        {
+			if (GetLastError() != 0 && GetLastError() != ERROR_FILE_NOT_FOUND && GetLastError() != ERROR_PATH_NOT_FOUND)
+				++rv;
+        }
+		else
+        {
+			do
+			{
+				dname = d.cFileName;
+				/* ours ? index . * or just index */
+				if (*dname == '.')
+					continue;
+				if (strncmp(dname, namebuf, namelen) != 0
+					|| (dname[namelen] != '.' &&
+					    dname[namelen] != 0))
+					continue;
+
+				sprintf(base, "/%s", dname);
+				if (unlink(path))
+					++rv;
+			}
+			while (FindNextFile(dirp, &d));
+			FindClose(dirp);
+		}
+		/* Set errno from first encountered error. */
+		if (rv && error)
+			errno = error;
+	}
+	return (rv);
+}
+
+/* Moves files under entry to new index. */
+int sqlite_logentry_movefiles(LogEntry *entry, LogIndex newidx)
+{
+	LogSystem *log = entry->logsys;
+	char path[1025];
+	char newpath[1025];
+	char *base;
+	char *newbase;
+	char *dname;
+	WIN32_FIND_DATA d;
+	HANDLE dirp;
+	int rv = 0;
+
+	strcpy(path, sqlite_logsys_filepath(log, LSFILE_FILES));
+	strcpy(newpath, path);
+
+	base = path + strlen(path);
+	newbase = newpath + strlen(newpath);
+
+	strcat(path, "/*");
+	dirp = FindFirstFile(path, &d);
+	path[strlen(path) - 2] = 0;
+	if (dirp == INVALID_HANDLE_VALUE)
+    {
+		if (GetLastError() != 0 && GetLastError() != ERROR_FILE_NOT_FOUND && GetLastError() != ERROR_PATH_NOT_FOUND)
+			return (-1);
+		else
+			return (0);
+	}
+
+    do
+    {
+        dname = d.cFileName;
+        if (*dname == '.')
+            continue;
+
+        sprintf(base, "/%s/%d", dname, entry->idx);
+        sprintf(newbase, "/%s/%d", dname, newidx);
+
+        if (!MoveFile(path, newpath))
+        {
+            if (GetLastError() != 0
+             && GetLastError() != ERROR_FILE_NOT_FOUND
+             && GetLastError() != ERROR_PATH_NOT_FOUND)
+            {
+                sqlite_logsys_warning(log, "move %s to %s: %s", path, newpath, sqlite_syserr_string(errno));
+                ++rv;
+            }
+        }
+    }
+    while (FindNextFile(dirp, &d));
+	FindClose(dirp);
+	return (rv);
+}
+
+void sqlite_logsys_compability_setup()
+{
+    LOGSYS_EXT_IS_DIR = 1;
+}
+

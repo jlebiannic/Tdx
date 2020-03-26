@@ -1,0 +1,20 @@
+CC=gcc
+CFLAGS=-I../translator -I../bottom -I../runtime -Wall
+LDFLAGS=-L../techlandapi/newapi/xcomms -L../ftp -L../bottom -L../dbsys -L../xml -L../logsystem/lib -L../logsystem/lib/temp_sqlite -L../logsystem/remote -L./copro -L../jdbc/c_sources -L../runtime -L../msg -L../security/usl -L../soap/toollib -L../mysql -L../rlslib -L./sql/odbc -L../sql -L../stat -L../encodertool -L../ldap -llibgns -llibgns.tcp -lliboftp -llibnetlib_sftp -llibnetlib -llibnetlib_s -llibedi -llibstxdbsys -llibodbsys -llibxml -lliblogsystem_dummy_symb -lliblogsystem -llibsqlite3 -lliblogd -llibpdf -llibcopro -llibessqljdbc -llibtr_time -llibtr_oftp -llibtr_exception -llibruntime -llibmsglib -llibsmime -libtools -llibessqlmysql -llibrls -llibessqlodbc -llibessqlora -llibstats -llibEncodertool -llibconn_ldap
+EXEC=TstBaseAccess
+
+all: cleanAll $(EXEC)
+
+TstBaseAccess: TstBaseAccess.o 
+	$(CC) -o $^ $@ $(LDFLAGS)
+
+TstBaseAccess.o: TstBaseAccess.c
+	$(CC) -o TstBaseAccess.o -c TstBaseAccess.c $(CFLAGS)
+
+clean:
+	rm -rf *.o
+
+cleanAll: clean
+	rm -rf $(EXEC)
+
+

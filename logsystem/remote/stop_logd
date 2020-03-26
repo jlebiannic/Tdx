@@ -1,0 +1,10 @@
+#!/bin/sh
+
+LOGDPID=`ps -ef | grep perhost|grep peruser| awk 'BEGIN {FS=" "} /root[ ]+[^ ]+/ {print $2} /^/ {}'`
+if [ -n "$LOGDPID" ]
+then
+	kill $LOGDPID
+	echo Logd stopped \(pid $LOGDPID\)
+else
+	echo Logd not running
+fi

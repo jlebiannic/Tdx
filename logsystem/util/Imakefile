@@ -1,0 +1,87 @@
+/*
+ * ===========================================================================!
+ *  Fichier: Makefile logsystem/util                                 GENERIX group !
+ * ---------------------------------------------------------------------------!
+ *  Fonctions:                                                                !
+ *                                                                            !
+ * ---------------------------------------------------------------------------!
+ *  Cree le: 6/06/2000                                                       !
+ * ---------------------------------------------------------------------------!
+ *  Modifications:                                                            !
+ * ---------------------------------------------------------------------------!
+ *  29/06/2010 CRE Adding comments
+ *  29/06/2010 CRE change SimpleProgram to PlainTarget (pb on AIX 6.1)
+ *  11/05/2012 JFC TX-506 : change the version of the sqlite lib to 3.7.6.2
+ *  Jira TX-3143 24.09.2019 - Olivier REMAUD - Passage au 64 bits
+* ===========================================================================!
+ */
+
+#include "sqlite.mk"
+
+#if defined(MACHINE_LINUX) || defined(MACHINE_AIX) || defined(MACHINE_SOLARIS)
+THREADFLAGS = -lpthread -ldl
+#endif
+
+#ifdef MACHINE_SOLARIS
+LDLIBS=$(NETLIBS)
+#endif
+
+#ifdef MACHINE_WNT
+CFLAGS=$(CFLAGS) -I$(LIBDIR)
+#endif
+
+OURLIBS = \
+	../../logsystem/lib/liblogsystem.$(LIBSFX) \
+	../../runtime/libruntime.$(LIBSFX) \
+	../../rlslib/librls.$(LIBSFX) \
+	../../bottom/libedi.$(LIBSFX)
+
+Uses(../../runtime ../../bottom ../../rlslib ../lib)
+
+AllDepend($(SRCROOT)/logsystem/lib/logsystem.h $(SRCROOT)/logsystem/lib/private.h $(SRCROOT)/logsystem/lib/lstool.h)
+
+PlainSource(util_globals)
+
+PlainSource(build)
+PlainSource(logcreate)
+PlainTarget(logcreate,logcreate.$(OBJSFX) build.$(OBJSFX) util_globals.$(OBJSFX),$(THREADFLAGS), $(EMPTY))
+
+PlainSource(logadd)
+PlainSource(logremove)
+PlainSource(logchange)
+PlainSource(logview)
+PlainTarget(logadd,logadd.$(OBJSFX) util_globals.$(OBJSFX),$(THREADFLAGS), $(EMPTY))
+PlainTarget(logremove,logremove.$(OBJSFX) util_globals.$(OBJSFX), $(THREADFLAGS), $(EMPTY))
+PlainTarget(logchange,logchange.$(OBJSFX) util_globals.$(OBJSFX),$(THREADFLAGS), $(EMPTY))
+PlainTarget(logview,logview.$(OBJSFX) util_globals.$(OBJSFX),$(THREADFLAGS), $(EMPTY))
+
+
+PlainSource(biglogview)
+PlainTarget(biglogview,biglogview.$(OBJSFX) ../../runtime/tr_wildmat.$(OBJSFX),$(THREADFLAGS),$(EMPTY))
+
+Object(lstool.old_util,old_util/lstool,$(EMPTY),$(EMPTY))
+Object(check.old_util,old_util/check,$(EMPTY),$(EMPTY))
+Object(fix.old_util,old_util/fix,$(EMPTY),$(EMPTY))
+Object(build.old_util,old_util/build,$(EMPTY),$(EMPTY))
+Object(reconfig.old_util,old_util/reconfig,$(EMPTY),$(EMPTY))
+Object(orderfree.old_util,old_util/orderfree,$(EMPTY),$(EMPTY))
+Object(fixhints.old_util,old_util/fixhints,$(EMPTY),$(EMPTY))
+Object(old2new.old_util,old_util/old2new,$(EMPTY),$(EMPTY))
+Object(rmunref.old_util,old_util/rmunref,$(EMPTY),$(EMPTY))
+
+PlainTarget(lstool,\
+	lstool.old_util.$(OBJSFX) \
+	check.old_util.$(OBJSFX) \
+	fix.old_util.$(OBJSFX) \
+	build.old_util.$(OBJSFX) \
+	reconfig.old_util.$(OBJSFX) \
+	orderfree.old_util.$(OBJSFX) \
+	fixhints.old_util.$(OBJSFX) \
+	old2new.old_util.$(OBJSFX) \
+	rmunref.old_util.$(OBJSFX) \
+	util_globals.$(OBJSFX), \
+	$(THREADFLAGS), $(EMPTY)\
+)
+
+
+

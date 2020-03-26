@@ -1,0 +1,88 @@
+/*========================================================================
+        E D I S E R V E R
+
+        File:		logsystem/external.c
+        Author:		Juha Nurmela (JN)
+        Date:		Mon Oct  3 02:18:43 EET 1994
+
+        Copyright (c) 1994 Telecom Finland/EDI Operations
+
+	Run external programs.
+========================================================================*/
+#include "conf/config.h"
+MODULE("@(#)TradeXpress logsystem/external    3.01 (20.11.96/JN)")
+/*========================================================================
+  Record all changes here and update the above string accordingly.
+  3.00 03.10.94/JN	Created.
+  3.01 20.11.96/JN	Getting rid of Unix-lookalike lib for WNT.
+========================================================================*/
+
+#include <stdio.h>
+#include <string.h>
+#include <fcntl.h>
+
+#include "logsystem.sqlite.h"
+
+int sqlite_logsys_runprog(LogSystem *log, char *progname, LogIndex vindex)
+{
+	int pid, i, status = 0;
+	char tmp[64], *arg = NULL;
+	char *fullprog = sqlite_logsys_filepath(log, progname);
+	char *basename = strrchr(progname, '/') + 1; /* loggin only */
+
+	if (access(fullprog, 0) != 0)
+    {
+		sqlite_logsys_warning(log, "No %s", fullprog);
+		return (-2);
+	}
+	if (vindex != -1)
+    {
+		arg = tmp;
+		sprintf(arg, "%d", vindex);
+	}
+	sqlite_logsys_trace(log, "executing %s %s", fullprog, arg ? arg : "");
+
+	fflush(stdout);
+
+	{
+		STARTUPINFO si;
+		PROCESS_INFORMATION pi;
+		DWORD exitcode;
+
+		memset(&si, 0, sizeof(si));
+		memset(&pi, 0, sizeof(pi));
+		si.cb = sizeof(si);
+
+		if (arg)
+        {
+			strcat(fullprog, " ");
+			strcat(fullprog, arg);
+		}
+		if (!CreateProcess(NULL, fullprog, NULL, NULL, 0, 0, NULL, NULL, &si, &pi))
+        {
+			sqlite_logsys_warning(log, "Cannot create process %s", fullprog);
+			return (-3);
+		}
+		CloseHandle(pi.hThread);
+
+		if (WaitForSingleObject(pi.hProcess, INFINITE) != WAIT_OBJECT_0)
+        {
+			status = -1;
+			sqlite_logsys_trace(log, "%s disappeared!", basename);
+		}
+        else
+            if (!GetExitCodeProcess(pi.hProcess, &exitcode))
+            {
+                status = -2;
+                sqlite_logsys_trace(log, "%s did not exit!", basename);
+            }
+            else
+            {
+                status = exitcode;
+                sqlite_logsys_trace(log, "%s returns %d", basename, status);
+            }
+		CloseHandle(pi.hProcess);
+	}
+	return (status);
+}
+

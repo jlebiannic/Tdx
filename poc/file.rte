@@ -1,0 +1,24 @@
+base "syslog.cfg" SYS
+
+begin
+
+	SYS :=new(sSYSLOG)
+
+        print("test") > "test.tmp"
+        print("test") >> "test.tmp"
+        close("test.tmp")
+
+tToLower := "|tr \"[A-Z]\" \"[a-z]\" < /tmp/file" 
+tLine := read (tToLower) 
+while tLine <> EOF do    
+  tLine := read (tToLower) 
+endwhile
+
+while fFile in "/usr/tmp/A*" do
+  ! ! File manipulation actions.
+  ! Here the fFile variable gets a different content for each loop.
+endwhile
+
+
+endbegin
+

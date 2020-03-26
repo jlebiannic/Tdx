@@ -1,0 +1,511 @@
+/*========================================================================
+        E D I S E R V E R
+
+        File:		logsystem/removal.c
+        Author:		Juha Nurmela (JN)
+        Date:		Mon Oct  3 02:18:43 EET 1994
+
+        Copyright (c) 1994 Telecom Finland/EDI Operations
+
+	Reading and writing logsystem stuff.
+========================================================================*/
+#include "conf/local_config.h"
+MODULE("@(#)TradeXpress logsystem/removal         3.03 (09.08.99/JN,KP)")
+/*LIBRARY(liblogsystem_version)
+*/
+/*========================================================================
+  Record all changes here and update the above string accordingly.
+  3.00 03.10.94/JN	Created.
+  3.01 02.04.96/JN	LOGSYS_EXT_IS_DIR.
+  3.02 20.11.96/JN	Getting rid of Unix-lookalike lib for WNT.
+  3.03 09.08.99/KP	definition for LOGSYS_EXT_IS_DIR was missing... (!)
+========================================================================*/
+
+#include <stdio.h>
+#include <sys/types.h>
+
+#ifdef MACHINE_WNT
+#include <windows.h>
+#else
+#include <dirent.h>
+#endif
+
+#include "logsystem.old_legacy.h"
+#include "private.old_legacy.h"
+
+old_legacy_logentry_remove(log, idx, extension)
+	LogSystem *log;
+	LogIndex idx;
+	char *extension;
+{
+	LogEntry *entry = old_legacy_logentry_readindex(log, idx);
+	int rv = 0;
+
+	if (!entry)
+		return (-1);
+
+	if (extension) {
+		if ((rv = old_legacy_logentry_removefiles(entry, extension)) == 0)
+			logentry_free(entry);
+	} else {
+		if ((rv = old_legacy_logentry_removefiles(entry, NULL)) == 0)
+			rv = old_legacy_logentry_destroy(entry);
+	}
+	return (rv);
+}
+	
+old_legacy_logsys_removebyfilter(log, lf, extension)
+	LogSystem *log;
+	LogFilter *lf;
+	char *extension;
+{
+	LogEntry *entry;
+	int maxcount;
+	int count = 0;
+	int errors = 0;
+	time_t now;
+
+	old_legacy_logsys_rewind(log);
+	time(&now);
+	old_legacy_logsys_refreshmap(log);
+
+	maxcount = log->map->numused;
+
+	while (count < maxcount) {
+		if ((entry = old_legacy_logentry_get(log)) == NULL)
+			break;
+
+		if (entry->record_ctime < now)
+			++count;
+
+		if (!old_legacy_logentry_passesfilter(entry, lf)) {
+			old_legacy_logentry_free(entry);
+			continue;
+		}
+		if (extension) {
+			if (old_legacy_logentry_removefiles(entry, extension))
+				++errors;
+			else
+				old_legacy_logentry_free(entry);
+		} else {
+			if (old_legacy_logentry_removefiles(entry, NULL))
+				++errors;
+			else if (old_legacy_logentry_destroy(entry))
+				++errors;
+		}
+	}
+	return (errors);
+}
+
+/*
+ * Remove the file with "extension" under index.
+ * extension in quotes, as it is not really an extension,
+ * but a subdirectory in .../files.
+ * That is, files are named for example like:
+ * .../users/demo/syslog/files/a/12345
+ *
+ * If extension is NULL, all files are removed.
+ *
+ * .../syslog/tmp/index.* and
+ * .../syslog/tmp/index   is also removed, just in case.
+ *
+ * Returns number of problems detected.
+ * If a directory or file did not exist, it is ok.
+ */
+old_legacy_logentry_removefiles(entry, extension)
+	LogEntry *entry;
+	char *extension;
+{
+	char *path;
+	char *base;
+	int rv = 0;
+
+	/*
+	 * This gives us a static buffer long enough to hold any
+	 * valid path.
+	 * ALERT
+	 * Dont call any logsystem-functions
+	 * as long using `directory'.
+	 */
+	path = old_legacy_logsys_filepath(entry->logsys, LSFILE_FILES);
+	base = path + strlen(path);
+
+	if (extension) {
+		if (LOGSYS_EXT_IS_DIR) {
+			sprintf(base, "/%s/%d",
+				extension, old_legacy_logentry_getindex(entry));
+		} else {
+			sprintf(base, "/%d.%s",
+				old_legacy_logentry_getindex(entry), extension);
+		}
+		if (unlink(path) && errno != 0 && errno != ENOENT)
+			++rv;
+	} else {
+		/*
+		 * Removing all files under this index.
+		 * Scan through files-directory and try
+		 * to unlink index-file in every one.
+		 */
+#ifdef MACHINE_WNT
+		WIN32_FIND_DATA d;
+		HANDLE dirp;
+#else
+		DIRENT *dp;
+		DIR *dirp;
+#endif
+		int error = 0;
+		int namelen;
+		char *dname;
+		char namebuf[64];
+
+		sprintf(namebuf, "%d", logentry_getindex(entry));
+		namelen = strlen(namebuf);
+
+#ifdef MACHINE_WNT
+		strcat(path, "/*");
+		dirp = FindFirstFile(path, &d);
+		path[strlen(path) - 2] = 0;
+
+		if (dirp == INVALID_HANDLE_VALUE) {
+			if (GetLastError() != 0
+			 && GetLastError() != ERROR_FILE_NOT_FOUND
+			 && GetLastError() != ERROR_PATH_NOT_FOUND)
+				++rv;
+			 
+		}
+#else
+		if ((dirp = opendir(path)) == NULL) {
+			if (errno != 0 && errno != ENOENT)
+				++rv;
+		}
+#endif
+		else {
+
+#ifdef MACHINE_WNT
+			do
+#else
+			while ((dp = readdir(dirp)) != NULL)
+#endif
+			{
+#ifdef MACHINE_WNT
+				dname = d.cFileName;
+#else
+				dname = dp->d_name;
+#endif
+				/*
+				 * Skip files which start with a dot.
+				 *
+				 * Do not take it as an error if
+				 * the file either does not exist,
+				 * or the directory we tried (dp->d_name)
+				 * was not a directory after all.
+				 */
+				if (*dname == '.')
+					continue;
+
+				if (LOGSYS_EXT_IS_DIR) {
+
+					sprintf(base, "/%s/%s", dname, namebuf);
+					if (unlink(path) != 0
+#ifdef MACHINE_WNT
+					 && GetLastError() != 0
+					 && GetLastError() != ERROR_FILE_NOT_FOUND
+					 && GetLastError() != ERROR_PATH_NOT_FOUND
+#else
+					 && errno != 0
+					 && errno != ENOENT
+					 && errno != ENOTDIR
+#endif
+					) {
+						++rv;
+						if (error == 0)
+							error = errno;
+					}
+				} else {
+					if (strncmp(dname, namebuf, namelen) != 0
+						|| (dname[namelen] != '.' &&
+							dname[namelen] != 0))
+						continue;
+
+					sprintf(base, "/%s", dname);
+					if (unlink(path))
+						++rv;
+				}
+			}
+#ifdef MACHINE_WNT
+			while (FindNextFile(dirp, &d));
+			FindClose(dirp);
+#else
+			closedir(dirp);
+#endif
+		}
+		/*
+		 * Run thru tmp directory too
+		 * for .../tmp/index.*
+		 */
+		path = old_legacy_logsys_filepath(entry->logsys, LSFILE_TMP);
+		base = path + strlen(path);
+
+#ifdef MACHINE_WNT
+		strcat(path, "/*");
+		dirp = FindFirstFile(path, &d);
+		path[strlen(path) - 2] = 0;
+		if (dirp == INVALID_HANDLE_VALUE) {
+			if (GetLastError() != 0
+			 && GetLastError() != ERROR_FILE_NOT_FOUND
+			 && GetLastError() != ERROR_PATH_NOT_FOUND)
+				++rv;
+		}
+#else
+		if ((dirp = opendir(path)) == NULL) {
+			if (errno != 0 && errno != ENOENT)
+				++rv;
+		}
+#endif
+		else {
+
+#ifdef MACHINE_WNT
+			do
+#else
+			while ((dp = readdir(dirp)) != NULL)
+#endif
+			{
+#ifdef MACHINE_WNT
+				dname = d.cFileName;
+#else
+				dname = dp->d_name;
+#endif
+				/*
+				 * ours ? index . * or just index
+				 */
+				if (*dname == '.')
+					continue;
+				if (strncmp(dname, namebuf, namelen) != 0
+					|| (dname[namelen] != '.' &&
+					    dname[namelen] != 0))
+					continue;
+
+				sprintf(base, "/%s", dname);
+				if (unlink(path))
+					++rv;
+			}
+#ifdef MACHINE_WNT
+			while (FindNextFile(dirp, &d));
+			FindClose(dirp);
+#else
+			closedir(dirp);
+#endif
+		}
+		/*
+		 *  Set errno from first encountered error.
+		 */
+		if (rv && error)
+			errno = error;
+	}
+	return (rv);
+}
+
+/*
+ * Moves files under entry to new index.
+ */
+old_legacy_logentry_movefiles(entry, newidx)
+	LogEntry *entry;
+	LogIndex newidx;
+{
+	LogSystem *log = entry->logsys;
+	char path[1025];
+	char newpath[1025];
+	char *base;
+	char *newbase;
+	char *dname;
+#ifdef MACHINE_WNT
+	WIN32_FIND_DATA d;
+	HANDLE dirp;
+#else
+	DIRENT *dp;
+	DIR *dirp;
+#endif
+	int rv = 0;
+
+	strcpy(path, old_legacy_logsys_filepath(log, LSFILE_FILES));
+	strcpy(newpath, path);
+
+	base = path + strlen(path);
+	newbase = newpath + strlen(newpath);
+
+#ifdef MACHINE_WNT
+	strcat(path, "/*");
+	dirp = FindFirstFile(path, &d);
+	path[strlen(path) - 2] = 0;
+	if (dirp == INVALID_HANDLE_VALUE) {
+		if (GetLastError() != 0
+		 && GetLastError() != ERROR_FILE_NOT_FOUND
+		 && GetLastError() != ERROR_PATH_NOT_FOUND)
+			return (-1);
+		else
+			return (0);
+	}
+#else
+	if ((dirp = opendir(path)) == NULL)
+		return ((errno != 0 && errno != ENOENT) ? -1 : 0);
+#endif
+
+	if (LOGSYS_EXT_IS_DIR) {
+
+#ifdef MACHINE_WNT
+		do
+#else
+		while ((dp = readdir(dirp)) != NULL)
+#endif
+		{
+#ifdef MACHINE_WNT
+			dname = d.cFileName;
+#else
+			dname = dp->d_name;
+#endif
+			if (*dname == '.')
+				continue;
+
+			sprintf(base, "/%s/%d",
+				dname, logentry_getindex(entry));
+			sprintf(newbase, "/%s/%d",
+				dname, newidx);
+
+#ifdef MACHINE_WNT
+			if (!MoveFile(path, newpath)) {
+				if (GetLastError() != 0
+				 && GetLastError() != ERROR_FILE_NOT_FOUND
+				 && GetLastError() != ERROR_PATH_NOT_FOUND) {
+					old_legacy_logsys_warning(log, "move %s to %s: %s",
+						path, newpath, old_legacy_syserr_string(errno));
+					++rv;
+				}
+			}
+#else
+			if (link(path, newpath)) {
+				if (errno != 0 && errno != ENOENT) {
+					old_legacy_logsys_warning(log, "link %s to %s: %s",
+						path, newpath, old_legacy_syserr_string(errno));
+					++rv;
+				}
+			} else if (unlink(path)) {
+				if (errno != 0 && errno != ENOENT) {
+					old_legacy_logsys_warning(log, "unlink %s: %s",
+						path, old_legacy_syserr_string(errno));
+					++rv;
+				}
+			}
+#endif
+		}
+#ifdef MACHINE_WNT
+		while (FindNextFile(dirp, &d));
+#endif
+	} else {
+		/*
+		 *  .../files/IDX.EXT
+		 *
+		 *  walk thru files and look for "IDX.*" or just "IDX"
+		 */
+		char *cp;
+		int namelen;
+		char namebuf[64];
+
+		sprintf(namebuf, "%d", old_legacy_logentry_getindex(entry));
+		namelen = strlen(namebuf);
+
+#ifdef MACHINE_WNT
+		do
+#else
+		while ((dp = readdir(dirp)) != NULL)
+#endif
+		{
+#ifdef MACHINE_WNT
+			dname = d.cFileName;
+#else
+			dname = dp->d_name;
+#endif
+			if (*dname == '.')
+				continue;
+
+			if (strncmp(dname, namebuf, namelen) != 0
+			 || (dname[namelen] != 0
+			  && dname[namelen] != '.'))
+				continue;
+
+			sprintf(base, "/%s", dname);
+
+			/*
+			 *  Separate cases unnecessary, in fact.
+			 */
+			if (dname[namelen]) {
+				sprintf(newbase, "/%d%s", newidx, &dname[namelen]);
+			} else {
+				sprintf(newbase, "/%d", newidx);
+			}
+#ifdef MACHINE_WNT
+			if (!MoveFile(path, newpath)) {
+				if (GetLastError() != 0
+				 && GetLastError() != ERROR_FILE_NOT_FOUND
+				 && GetLastError() != ERROR_PATH_NOT_FOUND) {
+					old_legacy_logsys_warning(log, "move %s to %s: %s",
+						path, newpath, old_legacy_syserr_string(errno));
+					++rv;
+				}
+			}
+#else
+			if (link(path, newpath)) {
+				if (errno != 0 && errno != ENOENT) {
+					old_legacy_logsys_warning(log, "link %s to %s: %s",
+						path, newpath, old_legacy_syserr_string(errno));
+					++rv;
+				}
+			} else if (unlink(path)) {
+				if (errno != 0 && errno != ENOENT) {
+					old_legacy_logsys_warning(log, "unlink %s: %s",
+						path, old_legacy_syserr_string(errno));
+					++rv;
+				}
+			}
+#endif
+		}
+#ifdef MACHINE_WNT
+		while (FindNextFile(dirp, &d));
+#endif
+	}
+#ifdef MACHINE_WNT
+	FindClose(dirp);
+#else
+	closedir(dirp);
+#endif
+	return (rv);
+}
+
+/*
+ *  Check to see if the .../files/ hierarchy is IDX.EXT
+ *  or EXT/IDX
+ *
+ *  ESBASECOMPAT=311 can be added to environment,
+ *  if 1234.l is the preferred style for files.
+ *
+ *  Currently we check here for < 32 (ignoring . in between) in the variable.
+ */
+void
+old_legacy_logsys_compability_setup()
+{
+	char *cp;
+	char major, minor;
+
+	LOGSYS_EXT_IS_DIR = 1;
+
+	cp = getenv("ESBASECOMPAT");
+
+	if (cp && *cp) {
+		major = *cp++;
+		minor = *cp++;
+		if (minor == '.')
+			minor = *cp++;
+		if (major < '3' || minor < '2')
+			LOGSYS_EXT_IS_DIR = 0;
+	}
+}
+

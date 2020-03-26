@@ -1,0 +1,88 @@
+#!/bin/sh
+
+case `uname -s` in
+	Linux*) ECHO="echo -e" ;;
+	*)	ECHO="echo";;
+esac
+export ECHO
+
+cd "$EDIHOME/lib/logd" || exit
+
+rm -f a.out
+
+$ECHO "
+Relinking logd from `pwd`...
+Bases:\c"
+
+count=0
+
+for o in *ops.o
+do
+	x=`basename $o .o`
+
+	order=`echo $x | cut -c1`
+	x=`echo $x | cut -c2-256`
+
+	if nm $o | grep init_$x >/dev/null 2>&1
+	then
+		$ECHO " $x\c"
+		bases="$bases $x"
+		files="$files $o"
+		head=`head -1 $x.libes 2>/dev/null`
+		libes="$libes `eval echo $head`"
+		decls="$decls void *init_$x();"
+		calls="$calls init_base(init_$x);"
+		array="$array \"$order\", init_$x," 
+		count=`expr $count + 1`
+	fi
+done
+
+$ECHO "\n#include <stdlib.h>" > _space.c
+$ECHO "\n#include <string.h>" >> _space.c
+$ECHO "\ntypedef struct{\n\tchar *order;\n\tvoid *(*init_base)(char *basename);\n} IBFS, *PIBFS;" >> _space.c
+$ECHO "\n$decls" >> _space.c
+$ECHO "static IBFS  init_funcs[] = { $array (char*)0L, NULL };" >> _space.c
+$ECHO "\nint comp_funcs( const void *a, const void *b ) {" >> _space.c
+$ECHO "\tPIBFS f1 = (PIBFS) a;" >> _space.c
+$ECHO "\tPIBFS f2 = (PIBFS) b;" >> _space.c
+$ECHO "\treturn strcmp( f1->order, f2->order );" >> _space.c
+$ECHO "}" >> _space.c
+$ECHO "\ninit_bases(){" >> _space.c
+$ECHO "\tint i=0, count=$count;" >> _space.c
+$ECHO "\tqsort( (void *)init_funcs, count, sizeof(IBFS),comp_funcs);" >> _space.c
+$ECHO "\twhile ( init_funcs[i].order ) {" >> _space.c
+$ECHO "\t\tinit_base( init_funcs[i].init_base ); " >> _space.c
+$ECHO "\t\ti++;" >> _space.c
+$ECHO "\t}" >> _space.c
+$ECHO "}" >> _space.c
+
+case "$bases" in
+"")
+	$ECHO "*** oops: zero bases found !"
+	exit 1
+	;;
+*)
+	$ECHO ".
+Loading..."
+	;;
+esac
+
+relinkcflags=
+
+case "`uname -s`" in
+HP-UX*)
+	relinkcflags="-Aa";;
+SunOS)
+	oslibes="-lsocket -lnsl" ;; # barf
+SCO_SV)
+	oslibes="-lsocket -lnsl" ;
+	relinkcflags="-belf -Kpic";;
+esac
+
+set -x
+cc $relinkcflags -L.. _space.c $files -llogd $libes -lruntime $oslibes && size a.out
+
+cp a.out $EDIHOME/bin/peruser
+chmod 775 $EDIHOME/bin/peruser
+
+

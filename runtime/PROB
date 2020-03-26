@@ -1,0 +1,9 @@
+
+compare() has no way of escaping specials on NT, as \ is common in paths.
+
+There is no RE for NT.
+
+filerouter should canonize filemask and filename.
+
+tr_parsetime() fouls input-string if there is <-> in it.
+
