@@ -41,6 +41,7 @@ MODULE("@(#)TradeXpress $Id: io.c 55415 2020-03-04 18:11:43Z jlebiannic $")
 #include "port.h"
 #include "data-access/commons/daoFactory.h"
 #include "tr_externals.h"
+#include "dastub.h"
 
 
 #ifdef MAXIOV

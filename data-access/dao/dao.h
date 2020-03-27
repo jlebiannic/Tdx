@@ -10,12 +10,17 @@ typedef struct Dao {
 	void (*closeDBAndExit)(struct Dao*);
 	int (*execQuery)(struct Dao*, const char*);
 	int (*execQueryMultiResults)(struct Dao*, const char*);
+	int (*execQueryParams)(struct Dao*, const char*, const char*[], int);
 	int (*execQueryParamsMultiResults)(struct Dao*, const char*, int);
 	void (*getEntry)(struct Dao*, const char*, const char*, const char*);
 	void (*getNextEntry)(struct Dao*);
 	int (*hasNextEntry)(struct Dao*);
 	char* (*getFieldValue)(struct Dao*, const char*);
 	int (*getFieldValueAsInt)(struct Dao*, const char*);
+	int (*getResultNbFields)(struct Dao*);
+	char* (*getFieldValueByNum)(struct Dao*, int);
+	int (*getFieldValueAsIntByNum)(struct Dao*, int);
+	double (*getFieldValueAsDoubleByNum)(struct Dao*, int);
 	unsigned int (*newEntry)(struct Dao*, const char *table);
 	void (*clearResult)(struct Dao*);
 	int (*beginTrans)(struct Dao*);

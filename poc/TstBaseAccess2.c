@@ -85,20 +85,20 @@ else
  TR_SQLNULL = tr_strdup(tr_am_textget(taPARAMETERS,"SQL_NULL"));
  }
 debughook(3,1);
-debughook(5,0);
-tr_lsCreate(&SYS,tr_GetEnv("SYSLOG"));
 debughook(6,0);
-tr_lsFindFirst(&SYS,0,(void *)0,tr_GetEnv("SYSLOG"),&lfh_1_1,1,0,"ORDERS",&lfh_1_2,1,0,"BGM_1001",NULL);
-debughook(8,0);
-tr_FileReopen (tr_lsPath(&SYS,"l"),stderr);
-debughook(10,0);
-tr_Print("%s%s","PARTNERS ORDERS FOUND !",TR_NEWLINE);
-debughook(11,0);
+tr_lsCreate(&SYS,tr_GetEnv("SYSLOG"));
+debughook(7,0);
 tr_lsFindFirst(&SYS,0,(void *)0,tr_GetEnv("SYSLOG"),&lfh_1_1,1,0,"PP",&lfh_1_2,1,0,"NN",NULL);
-debughook(12,0);
+debughook(8,0);
 tr_FileReopen (tr_lsPath(&SYS,"l2"),stderr);
-debughook(15,0);
+debughook(10,0);
 tr_Print("%s%s","PARTNERS PP FOUND !",TR_NEWLINE);
+debughook(11,0);
+tr_lsFindFirst(&SYS,0,(void *)0,tr_GetEnv("SYSLOG"),&lfh_1_1,1,0,"ORDERS",&lfh_1_2,1,0,"BGM_1001",NULL);
+debughook(13,0);
+tr_FileReopen (tr_lsPath(&SYS,"l"),stderr);
+debughook(17,0);
+tr_Print("%s%s","PARTNERS ORDERS FOUND !",TR_NEWLINE);
 return 0;
 } /* tr_UserStatements() */
 

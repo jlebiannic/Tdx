@@ -3,6 +3,7 @@
 #include "data-access/commons/commons.h"
 #include "logsystem.definitions.h"
 #include "logsystem.sqlite.h"
+#include "logsystem.h"
 
 static char* buildSqlStatement(LogSystem *log, LogFilter *lf);
 static void addSqlWhere(char **pSqlStatement, int *pIoffset, LogFilter *lf, int filter_count);
@@ -13,6 +14,7 @@ static int isNoPageCount();
 static const char* strPrefixColName(const char *name);
 static const char* getOpString(int opValue);
 static char* sqlite_wildcard(FilterRecord *f, char *p_text);
+static char* uitoa(unsigned int uint); // FIXME put in common lib (see data_access too)
 
 static int MAXCOUNT = 100000;
 /**
@@ -44,6 +46,86 @@ int Service_findEntries(LogSystem *log, LogIndex **pIndexes, LogFilter *lf) {
 	return nbResults;
 }
 
+int Service_findEntry(LogEntry *entry) {
+	/* SELECT data.* FROM data WHERE TX_INDEX=... */
+	int result = -1;
+
+	LogField *field;
+	char *value = NULL;
+	int i = 0;
+	LogLabel *label;
+	const char *table = entry->logsys->table;
+	Dao *dao = entry->logsys->dao;
+
+	if (!entry) {
+		return result;
+	}
+
+	label = entry->logsys->label;
+	const char queryFormat[] = "SELECT %s.* FROM %s WHERE TX_INDEX=$1";
+	char *query = allocStr(queryFormat, table, table);
+	sprintf(query, queryFormat, table, table);
+
+	sqlite_debug_logsys_warning(entry->logsys, "SQL Statement : %s", query);
+
+	char *idxAsStr = uitoa(entry->idx);
+	const char *queryParamValues[1] = { idxAsStr };
+	if (dao->execQueryParams(dao, query, queryParamValues, 1)) {
+	/* statement OK (but still result == number of row/entry == 0) */
+	result++;
+		if (dao->hasNextEntry(dao)) {
+			for (i = 0; i < dao->getResultNbFields(dao); i++) {
+				field = &label->fields[i];
+				/* buffer allready allocated in logentry_alloc_skipclear */
+				switch (field->type) {
+				default:
+					/* XXX should not happen ??? */
+					*(Integer*) (entry->record->buffer + field->offset) = dao->getFieldValueAsIntByNum(dao, i);
+					break;
+				case FIELD_NUMBER:
+					*(Number*) (entry->record->buffer + field->offset) = dao->getFieldValueAsDoubleByNum(dao, i);
+					break;
+				case FIELD_TIME: {
+					time_t tms[2];
+
+					value = dao->getFieldValueByNum(dao, i);
+					/* This uses only the start-time of the range, i.e. 1.2.1999 means 1.2.1999 00:00:00 AM */
+					if (value == NULL) {
+						tr_parsetime("", tms);
+					} else {
+						tr_parsetime(value, tms);
+					}
+
+					*(TimeStamp*) (entry->record->buffer + field->offset) = tms[0];
+					/* P.S.: do not free(value), it is garbaged by sqlite3 functions */
+					value = NULL;
+				}
+					break;
+				case FIELD_INDEX:
+				case FIELD_INTEGER:
+					*(Integer*) (entry->record->buffer + field->offset) = dao->getFieldValueAsIntByNum(dao, i);
+					break;
+				case FIELD_TEXT:
+					value = dao->getFieldValueByNum(dao, i);
+					mbsncpy(entry->record->buffer + field->offset, value ? value : "", field->size - 1);
+					/* P.S.: do not free(value), it is garbaged by sqlite3 functions */
+					value = NULL;
+					break;
+				}
+			}
+		}
+		result++;
+	}
+	free(query);
+	dao->clearResult(dao);
+
+	sqlite_debug_logsys_warning(entry->logsys, "Single Read Operation return : %d", result);
+	return result;
+}
+
+////////////////////////////
+// static functions
+////////////////////////////
 static int buildIndexes(LogSystem *log, LogIndex **pIndexes, LogFilter *lf) {
 	Dao *dao = log->dao;
 	int numberOfRowRead = 0;
@@ -367,5 +449,13 @@ static const char* getOpString(int opValue) {
 	default:
 		return NULL;
 	}
+}
+
+static char* uitoa(unsigned int uint) {
+  char *str = NULL; 
+	const int size = snprintf(NULL, 0, "%u", uint);
+	str = malloc(size + 1);
+	sprintf(str, "%u", uint);
+	return str;
 }
 
