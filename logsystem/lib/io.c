@@ -393,7 +393,9 @@ int sqlite_logentry_write(LogEntry *entry)
 	/* overridden every time and modifications from user get silently lost. */
 	sqlite_logentry_settimebyname(entry,"MODIFIED",sqlite_log_curtime());
 
-	if (log_sqlitewritebuf(entry,0))
+	// Jira TX-3199 DAO: stub
+	//if (log_sqlitewritebuf(entry,0))
+	if (dao_logentry_update(entry, 0))
 		return (-2);
 
 	return (0);
@@ -405,7 +407,9 @@ int sqlite_logentry_write(LogEntry *entry)
  * Record is NOT updated before write. */
 int sqlite_logentry_writeraw(LogEntry *entry)
 {
-	if (log_sqlitewritebuf(entry,1))
+	// Jira TX-3199 DAO: stub
+	// if (log_sqlitewritebuf(entry,1))
+	if (dao_logentry_update(entry, 1))
 		return (-2);
 
 	return (0);

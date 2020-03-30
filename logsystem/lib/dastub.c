@@ -41,11 +41,19 @@ int dao_logentry_find(LogSystem *log, LogIndex **pIndexes, LogFilter *lf) {
 }
 
 
-unsigned int dao_logentry_findOne(LogEntry *entry) {
+int dao_logentry_findOne(LogEntry *entry) {
 	if (daoMode()) {
 		return Service_findEntry(entry);
 	} else {
 		return log_sqlitereadbuf(entry);
+	}
+}
+
+int dao_logentry_update(LogEntry *entry, int rawMode) {
+	if (daoMode()) {
+		return Service_updateEntry(entry, rawMode);
+	} else {
+		return log_sqlitewritebuf(entry, rawMode);
 	}
 }
 

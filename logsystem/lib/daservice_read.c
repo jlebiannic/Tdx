@@ -14,13 +14,13 @@ static int isNoPageCount();
 static const char* strPrefixColName(const char *name);
 static const char* getOpString(int opValue);
 static char* sqlite_wildcard(FilterRecord *f, char *p_text);
-static char* uitoa(unsigned int uint); // FIXME put in common lib (see data_access too)
+static void buildEntry(LogEntry *entry, int i);
 
 static int MAXCOUNT = 100000;
 /**
  * Jira TX-3199 DAO
  * */
-char* Service_buildQuery(Dao *dao, LogSystem *log, LogFilter *lf) {
+char* Service_buildSelectQuery(Dao *dao, LogSystem *log, LogFilter *lf) {
 	char *query = NULL;
 	switch (dao->id) {
 	case 1:
@@ -35,7 +35,7 @@ char* Service_buildQuery(Dao *dao, LogSystem *log, LogFilter *lf) {
 
 int Service_findEntries(LogSystem *log, LogIndex **pIndexes, LogFilter *lf) {
 	int nbResults = -1;
-	char *query = Service_buildQuery(log->dao, log, lf);
+	char *query = Service_buildSelectQuery(log->dao, log, lf);
 	int resQuery = log->dao->execQuery(log->dao, query);
 	free(query);
 	query = NULL;
@@ -49,11 +49,8 @@ int Service_findEntries(LogSystem *log, LogIndex **pIndexes, LogFilter *lf) {
 int Service_findEntry(LogEntry *entry) {
 	/* SELECT data.* FROM data WHERE TX_INDEX=... */
 	int result = -1;
-
-	LogField *field;
-	char *value = NULL;
 	int i = 0;
-	LogLabel *label;
+
 	const char *table = entry->logsys->table;
 	Dao *dao = entry->logsys->dao;
 
@@ -61,7 +58,6 @@ int Service_findEntry(LogEntry *entry) {
 		return result;
 	}
 
-	label = entry->logsys->label;
 	const char queryFormat[] = "SELECT %s.* FROM %s WHERE TX_INDEX=$1";
 	char *query = allocStr(queryFormat, table, table);
 	sprintf(query, queryFormat, table, table);
@@ -71,47 +67,11 @@ int Service_findEntry(LogEntry *entry) {
 	char *idxAsStr = uitoa(entry->idx);
 	const char *queryParamValues[1] = { idxAsStr };
 	if (dao->execQueryParams(dao, query, queryParamValues, 1)) {
-	/* statement OK (but still result == number of row/entry == 0) */
-	result++;
+		/* statement OK (but still result == number of row/entry == 0) */
+		result++;
 		if (dao->hasNextEntry(dao)) {
 			for (i = 0; i < dao->getResultNbFields(dao); i++) {
-				field = &label->fields[i];
-				/* buffer allready allocated in logentry_alloc_skipclear */
-				switch (field->type) {
-				default:
-					/* XXX should not happen ??? */
-					*(Integer*) (entry->record->buffer + field->offset) = dao->getFieldValueAsIntByNum(dao, i);
-					break;
-				case FIELD_NUMBER:
-					*(Number*) (entry->record->buffer + field->offset) = dao->getFieldValueAsDoubleByNum(dao, i);
-					break;
-				case FIELD_TIME: {
-					time_t tms[2];
-
-					value = dao->getFieldValueByNum(dao, i);
-					/* This uses only the start-time of the range, i.e. 1.2.1999 means 1.2.1999 00:00:00 AM */
-					if (value == NULL) {
-						tr_parsetime("", tms);
-					} else {
-						tr_parsetime(value, tms);
-					}
-
-					*(TimeStamp*) (entry->record->buffer + field->offset) = tms[0];
-					/* P.S.: do not free(value), it is garbaged by sqlite3 functions */
-					value = NULL;
-				}
-					break;
-				case FIELD_INDEX:
-				case FIELD_INTEGER:
-					*(Integer*) (entry->record->buffer + field->offset) = dao->getFieldValueAsIntByNum(dao, i);
-					break;
-				case FIELD_TEXT:
-					value = dao->getFieldValueByNum(dao, i);
-					mbsncpy(entry->record->buffer + field->offset, value ? value : "", field->size - 1);
-					/* P.S.: do not free(value), it is garbaged by sqlite3 functions */
-					value = NULL;
-					break;
-				}
+				buildEntry(entry, i);
 			}
 		}
 		result++;
@@ -169,7 +129,7 @@ static int buildIndexes(LogSystem *log, LogIndex **pIndexes, LogFilter *lf) {
 
 static int getLimit(LogFilter *lf) {
 	int max_count = -1;
-	if (lf->max_count > 0) {
+	if (lf && lf->max_count > 0) {
 		max_count = lf->max_count;
 	}
 	return max_count;
@@ -177,18 +137,19 @@ static int getLimit(LogFilter *lf) {
 
 static int getOffset(LogFilter *lf) {
 	int offset = -1;
-
-	/* PSA(CG) : 24/10/2014 - WBA-333 : Use SQL offset if flag present */
-	if (!isNoPageCount()) {
-		if (lf->offset > 0) {
-			offset = lf->offset;
+	if (lf) {
+		/* PSA(CG) : 24/10/2014 - WBA-333 : Use SQL offset if flag present */
+		if (!isNoPageCount()) {
+			if (lf->offset > 0) {
+				offset = lf->offset;
+			}
+		} else {
+			if (lf->offset > 0) {
+				offset = 0;
+			}
 		}
-	} else {
-		if (lf->offset > 0) {
-			offset = 0;
-		}
+		/* fin WBA-333 */
 	}
-	/* fin WBA-333 */
 	return offset;
 }
 
@@ -451,11 +412,35 @@ static const char* getOpString(int opValue) {
 	}
 }
 
-static char* uitoa(unsigned int uint) {
-  char *str = NULL; 
-	const int size = snprintf(NULL, 0, "%u", uint);
-	str = malloc(size + 1);
-	sprintf(str, "%u", uint);
-	return str;
+static void buildEntry(LogEntry *entry, int i) {
+	LogField *field;
+	LogLabel *label;
+	Dao *dao = entry->logsys->dao;
+
+	label = entry->logsys->label;
+	field = &label->fields[i];
+	/* buffer allready allocated in logentry_alloc_skipclear */
+	switch (field->type) {
+	default:
+		/* XXX should not happen ??? */
+		*(Integer*) (entry->record->buffer + field->offset) = dao->getFieldValueAsIntByNum(dao, i);
+		break;
+	case FIELD_NUMBER:
+		*(Number*) (entry->record->buffer + field->offset) = dao->getFieldValueAsDoubleByNum(dao, i);
+		break;
+	case FIELD_TIME: {
+		time_t tms[2];
+		tr_parsetime(dao->getFieldValueByNum(dao, i), tms);
+		*(TimeStamp*) (entry->record->buffer + field->offset) = tms[0];
+	}
+		break;
+	case FIELD_INDEX:
+	case FIELD_INTEGER:
+		*(Integer*) (entry->record->buffer + field->offset) = dao->getFieldValueAsIntByNum(dao, i);
+		break;
+	case FIELD_TEXT:
+		mbsncpy(entry->record->buffer + field->offset, dao->getFieldValueByNum(dao, i), field->size - 1);
+		break;
+	}
 }
 

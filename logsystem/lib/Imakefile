@@ -102,7 +102,8 @@ PlainSource(logsystem)
 PlainSource(dummysymb)
 
 PlainSource(dastub)
-PlainSource(daservice)
+PlainSource(daservice_read)
+PlainSource(daservice_update)
 
 Library(liblogsystem, \
 logsystem.$(OBJSFX) \
@@ -132,7 +133,8 @@ $(OLD_LEGACY_OBJ) \
 $(SQLITEOBJ) \
 
 dastub.$(OBJSFX) \
-daservice.$(OBJSFX) \
+daservice_read.$(OBJSFX) \
+daservice_update.$(OBJSFX) \
 )
 
 Library(liblogsystem_dummy_symb, \
