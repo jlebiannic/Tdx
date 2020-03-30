@@ -24,6 +24,7 @@ typedef struct PgDao {
 	int (*getFieldValueAsIntByNum)(struct PgDao*, int);
 	double (*getFieldValueAsDoubleByNum)(struct PgDao*, int);
 	unsigned int (*newEntry)(struct PgDao*, const char*);
+	int (*updateEntries)(struct PgDao*, const char*, const char*[], const char*[], int nb, const char*);
 	void (*clearResult)(struct PgDao*);
 	int (*beginTrans)(struct PgDao*);
 	int (*endTrans)(struct PgDao*);
@@ -64,6 +65,7 @@ char* PgDao_getFieldValueByNum(PgDao *This, int numField);
 int PgDao_getFieldValueAsIntByNum(PgDao *This, int numField);
 double PgDao_getFieldValueAsDoubleByNum(PgDao *This, int numField);
 unsigned int PgDao_newEntry(PgDao *This, const char *table);
+int PgDao_updateEntries(PgDao *This, const char *table, const char *fields[], const char *values[], int nb, const char *filter);
 void PgDao_clearResult(PgDao*);
 int PgDao_beginTrans(PgDao*);
 int PgDao_endTrans(PgDao*);

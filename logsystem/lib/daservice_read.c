@@ -60,7 +60,6 @@ int Service_findEntry(LogEntry *entry) {
 
 	const char queryFormat[] = "SELECT %s.* FROM %s WHERE TX_INDEX=$1";
 	char *query = allocStr(queryFormat, table, table);
-	sprintf(query, queryFormat, table, table);
 
 	sqlite_debug_logsys_warning(entry->logsys, "SQL Statement : %s", query);
 

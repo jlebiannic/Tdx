@@ -12,28 +12,24 @@
 #include "logsystem.sqlite.h"
 #include "logsystem.h"
 
-static int calculateQueryLenght(LogEntry *entry, int rawmode);
-static char* buildUpdateQuery(LogEntry *entry, int rawmode);
+static int execUpdateQuery(LogEntry *entry, int rawmode);
+static void buildArraysForUpdateQuery(LogEntry *entry, int rawmode, char **fields, char **values, int *nb);
+static void addElement(char **array, char *element, int idx, int alloc);
 
 int Service_updateEntry(LogEntry *entry, int rawmode) {
 	/* UPDATE data SET ("..."='...',)* ("..."='...') WHERE TX_INDEX=entry->idx */
 	/* if rawmode, we do specify the index in the base, so we must add it to the request */
-	char *sqlStatement = NULL;
 	LogSystem *log = entry->logsys;
-	Dao *dao = entry->logsys->dao;
 
 	if (!entry) {
 		return -1;
 	}
 
-	sqlStatement = buildUpdateQuery(entry, rawmode);
-
-	sqlite_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
-	int returnCode = dao->execQuery(dao, sqlStatement);
+	// TODO log debug sqlite_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
+	int returnCode = execUpdateQuery(entry, rawmode);
 	if (!returnCode) {
-		sqlite_logsys_warning(log, "Write operation in SQLite database failed : %s", sqlStatement);
+		sqlite_logsys_warning(log, "Write operation in SQLite database failed : Service_updateEntry");
 	}
-	free(sqlStatement);
 	if (returnCode == TRUE) {
 		return 0;
 	} else {
@@ -41,79 +37,72 @@ int Service_updateEntry(LogEntry *entry, int rawmode) {
 	}
 }
 
-static int calculateQueryLenght(LogEntry *entry, int rawmode) {
-	int sqlStatementLength = 0;
+static int execUpdateQuery(LogEntry *entry, int rawmode) {
 	LogSystem *log = entry->logsys;
-	int i = 0;
-	const char *table = entry->logsys->table;
-
-	sqlStatementLength = sizeof("UPDATE SET ") + log->label->recordsize * 2;
-	sqlStatementLength += strlen(table) + 1;
-	sqlStatementLength += sizeof("=''[, ]") * (log->label->nfields - rawmode);
-	sqlStatementLength += sizeof("WHERE TX_INDEX=") + MAX_INT_DIGITS;
-
-	for (i = 0; i < log->label->nfields - 1; ++i) {
-		if (strcmp(log->label->fields[i].name.string, "INDEX") == 0) {
-			if (rawmode) {
-				sqlStatementLength += sizeof("TX_");
-			} else {
-				continue;
-			}
-		}
-		sqlStatementLength += strlen((log->label->fields[i]).name.string);
-	}
-
-	return sqlStatementLength;
+	Dao *dao = log->dao;
+	const char *table = log->table;
+	int nb = log->label->nfields;
+	char *fields[nb];
+	char *values[nb];
+	int realNb;
+	buildArraysForUpdateQuery(entry, rawmode, fields, values, &realNb);
+	char *filter = allocStr("TX_INDEX=%d", entry->idx);
+	int res = dao->updateEntries(dao, table, (const char **)fields, (const char **)values, realNb, filter);
+	free(filter);
+	freeArray(fields, realNb);
+	freeArray(values, realNb);
+	return res;
 }
 
-static char* buildUpdateQuery(LogEntry *entry, int rawmode) {
-	int ioffset = 0;
+static void buildArraysForUpdateQuery(LogEntry *entry, int rawmode, char *fields[], char *values[], int *nb) {
 	LogSystem *log = entry->logsys;
 	int i = 0;
-	const char *table = entry->logsys->table;
-
-	int sqlStatementLength = calculateQueryLenght(entry, rawmode);
-	char *sqlStatement = (char*) malloc(sqlStatementLength + 1);
-
-	char *updateSetCmd = allocStr2("UPDATE %s SET ", table);
-	ioffset += sprintf(sqlStatement + ioffset, updateSetCmd);
+	int cpt=0;
+	char *fieldValue = NULL;
+	char *fieldName = NULL;
 	for (i = 0; i < log->label->nfields - 1; ++i) {
 		if (strcmp(log->label->fields[i].name.string, "INDEX") == 0) {
 			if (!rawmode) {
 				continue;
 			}
-			ioffset += sprintf(sqlStatement + ioffset, "TX_%s='", log->label->fields[i].name.string);
+			fieldName = allocStr("TX_%s", log->label->fields[i].name.string);
+			addElement(fields, fieldName, cpt, FALSE);
 		} else {
-			ioffset += sprintf(sqlStatement + ioffset, "%s='", log->label->fields[i].name.string);
+			addElement(fields, log->label->fields[i].name.string, cpt, TRUE);
 		}
 
 		switch ((log->label->fields[i]).type) {
 		default:
 			break;
 		case FIELD_NUMBER:
-			ioffset += sprintf(sqlStatement + ioffset, "%lf", *(Number*) (entry->record->buffer + log->label->fields[i].offset));
+			fieldValue = allocStr("%lf", *(Number*) (entry->record->buffer + log->label->fields[i].offset));
+			addElement(values, fieldValue, cpt, FALSE);
 			break;
 		case FIELD_TIME:
-			ioffset += sprintf(sqlStatement + ioffset, "%s", tr_timestring("%a", *(TimeStamp*) (entry->record->buffer + log->label->fields[i].offset)));
+			fieldValue = allocStr("%s", tr_timestring("%a", *(TimeStamp*) (entry->record->buffer + log->label->fields[i].offset)));
+			addElement(values, fieldValue, cpt, FALSE);
 			break;
 		case FIELD_INDEX:
 		case FIELD_INTEGER:
-			ioffset += sprintf(sqlStatement + ioffset, "%d", *(int*) (entry->record->buffer + log->label->fields[i].offset));
+			fieldValue = allocStr("%d", *(int*) (entry->record->buffer + log->label->fields[i].offset));
+			addElement(values, fieldValue, cpt, FALSE);
 			break;
 		case FIELD_TEXT:
-			// TODO sqlite3_mprintf: utiliser execQueryParam
-			ioffset += sprintf(sqlStatement + ioffset, "%s", (char*) (entry->record->buffer + log->label->fields[i].offset));
+			addElement(values, (char*) (entry->record->buffer + log->label->fields[i].offset), cpt, TRUE);
 			break;
 		}
-		ioffset += sprintf(sqlStatement + ioffset, "'");
-
-		if (i < log->label->nfields - 2) {
-			ioffset += sprintf(sqlStatement + ioffset, ",");
-		} else {
-			ioffset += sprintf(sqlStatement + ioffset, " ");
-		}
+		cpt++;
 	}
-	ioffset += sprintf(sqlStatement + ioffset, "WHERE TX_INDEX=%d", entry->idx);
+	*nb = cpt;
+}
 
-	return sqlStatement;
+static void addElement(char **array, char *element, int idx, int alloc) {
+	char *newElem = NULL;
+	if (alloc) {
+		newElem = malloc((strlen(element) + 1) * sizeof(char));
+		strcpy(newElem, element);
+	} else {
+		newElem = element;
+	}
+	array[idx] = newElem;
 }
