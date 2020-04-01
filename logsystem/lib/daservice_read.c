@@ -5,8 +5,8 @@
 #include "logsystem.sqlite.h"
 #include "logsystem.h"
 
-static char* buildSqlStatement(LogSystem *log, LogFilter *lf);
-static void addSqlWhere(char **pSqlStatement, int *pIoffset, LogFilter *lf, int filter_count);
+static void buildFilterAndValues(char **pSqlStatement, LogFilter *lf, char **values, int *nbValues);
+static int calculateFilterLen(LogFilter *lf);
 static int buildIndexes(LogSystem *log, LogIndex **pIndexes, LogFilter *lf);
 static int getOffset(LogFilter *lf);
 static int getLimit(LogFilter *lf);
@@ -17,28 +17,25 @@ static char* sqlite_wildcard(FilterRecord *f, char *p_text);
 static void buildEntry(LogEntry *entry, int i);
 
 static int MAXCOUNT = 100000;
+#define MAX_OP_SIZE 8
 /**
  * Jira TX-3199 DAO
  * */
-char* Service_buildSelectQuery(Dao *dao, LogSystem *log, LogFilter *lf) {
-	char *query = NULL;
-	switch (dao->id) {
-	case 1:
-		// PostgreSQL DAO
-		query = buildSqlStatement(log, lf);
-		break;
-	default:
-		break;
-	}
-	return query;
-}
-
 int Service_findEntries(LogSystem *log, LogIndex **pIndexes, LogFilter *lf) {
 	int nbResults = -1;
-	char *query = Service_buildSelectQuery(log->dao, log, lf);
-	int resQuery = log->dao->execQuery(log->dao, query);
-	free(query);
-	query = NULL;
+
+	char **values = NULL;
+	char *filter = NULL;
+	int nbValues = -1;
+	buildFilterAndValues(&filter, lf, values, &nbValues);
+
+	char *fields[] = { "TX_INDEX" };
+	int resQuery = log->dao->getEntries(log->dao, log->table, (const char **)fields, 1, filter, (const char **)values);
+
+	freeArray(values, nbValues);
+	free(values);
+	free(filter);
+
 	if (resQuery) {
 		nbResults = buildIndexes(log, pIndexes, lf);
 	}
@@ -152,72 +149,6 @@ static int getOffset(LogFilter *lf) {
 	return offset;
 }
 
-static char* buildSqlStatement(LogSystem *log, LogFilter *lf) {
-	/* SELECT TX_INDEX FROM data WHERE ... */
-	char *sqlStatement = NULL;
-	int ioffset = 0;
-	FilterRecord *f = NULL;
-
-	// FIXME calcul sqlStatementSize dynamique ?
-	int sqlStatementSize = 2048 * sizeof(char);
-	int filter_count = 0;
-
-	char selectIdxFrom[100];
-	sprintf(selectIdxFrom, "SELECT TX_INDEX FROM %s ", log->table);
-
-	// FIXME calcul sqlStatementSize dynamique ?
-	sqlStatement = (char*) malloc(sqlStatementSize + 1);
-
-	if (!lf) /* no filter, return all (???) */
-	{
-		ioffset += sprintf(sqlStatement + ioffset, selectIdxFrom);
-	} else {
-
-		for (f = lf->filters; f < &lf->filters[lf->filter_count]; ++f) {
-			if (f->field != NULL && f->field->type != PSEUDOFIELD_OWNER) {
-				// FIXME calcul sqlStatementSize dynamique ?
-				filter_count++;
-			}
-		}
-
-		ioffset += sprintf(sqlStatement + ioffset, selectIdxFrom);
-
-		addSqlWhere(&sqlStatement, &ioffset, lf, filter_count);
-
-		if (lf->sort_key) {
-			ioffset += sprintf(sqlStatement + ioffset, " ORDER BY \"%s%s\"", strPrefixColName(lf->sort_key), lf->sort_key);
-		}
-		if ((!lf->sort_key) && (lf->sort_order != 0)) {
-			ioffset += sprintf(sqlStatement + ioffset, " ORDER BY TX_INDEX");
-		}
-		switch (lf->sort_order) {
-		case -1:
-			ioffset += sprintf(sqlStatement + ioffset, " DESC");
-			break;
-		case 1:
-			ioffset += sprintf(sqlStatement + ioffset, " ASC");
-			break;
-		default: /* no order for the filter, take default one */
-			break;
-		}
-
-		/* PSA(CG) : 24/10/2014 - WBA-333 : Use SQL offset if flag present */
-		if (isNoPageCount()) {
-			if (lf->max_count > 0) {
-				ioffset += sprintf(sqlStatement + ioffset, " LIMIT %d", lf->max_count);
-			}
-			if (lf->offset > 0) {
-				ioffset += sprintf(sqlStatement + ioffset, " OFFSET %d", lf->offset);
-			}
-		}
-		/* fin WBA-333 */
-	}
-
-	sqlite_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
-
-	return sqlStatement;
-}
-
 static const char* strPrefixColName(const char *name) {
 	if (strcmp(name, "INDEX") == 0) {
 		return "TX_";
@@ -234,98 +165,185 @@ static int isNoPageCount() {
 	}
 }
 
-/* side effects on pSqlStatement and pIoffset */
-static void addSqlWhere(char **pSqlStatement, int *pIoffset, LogFilter *lf, int filter_count) {
+static void buildFilterAndValues(char **pSqlStatement, LogFilter *lf, char **values, int *nbValues) {
 	FilterRecord *f;
 	union FilterPrimary *p;
 	char *p_text;
+	int cpt = 0;
+	int ioffset = 0;
 
 	if (!lf) {
 		return;
 	}
+	values = (char**) malloc(sizeof(char**));
+	*pSqlStatement = malloc(calculateFilterLen(lf));
 
-	if ((lf->filter_count > 0) && (filter_count != 0)) {
-		*pIoffset += sprintf(*pSqlStatement + *pIoffset, "WHERE ");
+	for (f = lf->filters; f < &lf->filters[lf->filter_count]; ++f) {
+		if (f->field == NULL || f->field->type == PSEUDOFIELD_OWNER) {
+			continue;
+		}
 
-		for (f = lf->filters; f < &lf->filters[lf->filter_count]; ++f) {
-			if (f->field == NULL || f->field->type == PSEUDOFIELD_OWNER) {
-				continue;
-			}
+		if (f != lf->filters) {
+			ioffset += sprintf(*pSqlStatement + ioffset, " AND ");
+		}
 
-			if (f != lf->filters) {
-				*pIoffset += sprintf(*pSqlStatement + *pIoffset, " AND ");
-			}
-
-			/* once the label found we write the corresponding primaries
-			 * e.g. : INDEX >= 12 AND INDEX <= 18 */
-			for (p = f->primaries; p < &f->primaries[f->n_primaries]; ++p) {
-				if (f->op != OP_NONE) {
-					if (p != f->primaries) {
-						*pIoffset += sprintf(*pSqlStatement + *pIoffset, " OR ");
-					} else {
-						if (f->n_primaries > 1) {
-							*pIoffset += sprintf(*pSqlStatement + *pIoffset, "( ");
-						}
+		/* once the label found we write the corresponding primaries
+		 * e.g. : INDEX >= 12 AND INDEX <= 18 */
+		for (p = f->primaries; p < &f->primaries[f->n_primaries]; ++p) {
+			if (f->op != OP_NONE) {
+				if (p != f->primaries) {
+					ioffset += sprintf(*pSqlStatement + ioffset, " OR ");
+				} else {
+					if (f->n_primaries > 1) {
+						ioffset += sprintf(*pSqlStatement + ioffset, "( ");
 					}
+				}
 
-					*pIoffset += sprintf(*pSqlStatement + *pIoffset, "%s%s ", strPrefixColName(f->name), f->name);
+				ioffset += sprintf(*pSqlStatement + ioffset, "%s%s ", strPrefixColName(f->name), f->name);
 
-					switch (f->field->type) {
+				switch (f->field->type) {
+				default:
+					/* return (fprintf(fp, "TYPE%d", f->type)); */
+					break;
+				case FIELD_TIME:
+					switch (f->op) {
+					case OP_NEQ:
+						ioffset += sprintf(*pSqlStatement + ioffset, " NOT"); /* add NOT and go on as EQ case */
+					case OP_EQ:
+						ioffset += sprintf(*pSqlStatement + ioffset, " BETWEEN $ AND $");
+						arrayAddTimeElement(values, p->times[0], cpt, TRUE);
+						cpt++;
+						arrayAddTimeElement(values, p->times[1], cpt, TRUE);
+						cpt++;
+						break;
+					case OP_LT:
+						ioffset += sprintf(*pSqlStatement + ioffset, "< $");
+						arrayAddTimeElement(values, p->times[0], cpt, TRUE);
+						cpt++;
+						break;
+					case OP_LTE:
+						ioffset += sprintf(*pSqlStatement + ioffset, "<= $");
+						arrayAddTimeElement(values, p->times[1], cpt, TRUE);
+						cpt++;
+						break;
+					case OP_GTE:
+						ioffset += sprintf(*pSqlStatement + ioffset, ">= $");
+						arrayAddTimeElement(values, p->times[0], cpt, TRUE);
+						cpt++;
+						break;
+					case OP_GT:
+						ioffset += sprintf(*pSqlStatement + ioffset, ">= $");
+						arrayAddTimeElement(values, p->times[1], cpt, TRUE);
+						cpt++;
+						break;
 					default:
-						/* return (fprintf(fp, "TYPE%d", f->type)); */
 						break;
-					case FIELD_TIME:
-						switch (f->op) {
-						case OP_NEQ:
-							*pIoffset += sprintf(*pSqlStatement + *pIoffset, " NOT"); /* add NOT and go on as EQ case */
-						case OP_EQ:
-							*pIoffset += sprintf(*pSqlStatement + *pIoffset, " BETWEEN %ld AND %ld", p->times[0], p->times[1]);
-							break;
-						case OP_LT:
-							*pIoffset += sprintf(*pSqlStatement + *pIoffset, "< %ld", p->times[0]);
-							break;
-						case OP_LTE:
-							*pIoffset += sprintf(*pSqlStatement + *pIoffset, "<= %ld", p->times[1]);
-							break;
-						case OP_GTE:
-							*pIoffset += sprintf(*pSqlStatement + *pIoffset, ">= %ld", p->times[0]);
-							break;
-						case OP_GT:
-							*pIoffset += sprintf(*pSqlStatement + *pIoffset, ">= %ld", p->times[1]);
-							break;
-						default:
-							break;
-						}
-						break;
+					}
+					break;
 					case FIELD_NUMBER:
-						*pIoffset += sprintf(*pSqlStatement + *pIoffset, "%s %lf", getOpString(f->op), p->number);
+					ioffset += sprintf(*pSqlStatement + ioffset, "%s $", getOpString(f->op));
+						arrayAddDoubleElement(values, p->number, cpt, TRUE);
+						cpt++;
 						break;
 					case FIELD_INDEX:
 					case FIELD_INTEGER:
-						*pIoffset += sprintf(*pSqlStatement + *pIoffset, "%s %d", getOpString(f->op), p->integer);
+					ioffset += sprintf(*pSqlStatement + ioffset, "%s $", getOpString(f->op));
+						arrayAddIntElement(values, p->integer, cpt, TRUE);
+						cpt++;
 						break;
 					case FIELD_TEXT:
 						// p_text = sqlite3_mprintf("%q", sqlite_wildcard(f, p->text));
 						p_text = sqlite_wildcard(f, p->text);
 						// TODO use PQescapeLiteral insteadof sqlite_wildcard (=> tests)
-						// TODO sanitize SQL replace sqlite3_mprintf by PQexecParams (=> refactor)
-						*pIoffset += sprintf(*pSqlStatement + *pIoffset, "%s '%s'", getOpString(f->op), p_text);
-
+					ioffset += sprintf(*pSqlStatement + ioffset, "%s $", getOpString(f->op));
+						arrayAddElement(values, p_text, cpt, TRUE, FALSE);
+						cpt++;
 						if ((f->op == OP_LEQ) || (f->op == OP_LNEQ)) {
-							*pIoffset += sprintf(*pSqlStatement + *pIoffset, " ESCAPE '\\'");
+						ioffset += sprintf(*pSqlStatement + ioffset, " ESCAPE '\\'");
 						}
 						// FIXME: Second time crash !
-//						free(p_text);
-//						p_text = NULL;
+						//						free(p_text);
+						//						p_text = NULL;
 						break;
-					}
 				}
 			}
-			if (f->n_primaries > 1) {
-				*pIoffset += sprintf(*pSqlStatement + *pIoffset, " )");
+		}
+		if (f->n_primaries > 1) {
+			ioffset += sprintf(*pSqlStatement + ioffset, " )");
+		}
+		*nbValues = cpt;
+	}
+
+	if (lf->sort_key) {
+		ioffset += sprintf(*pSqlStatement + ioffset, " ORDER BY \"%s%s\"", strPrefixColName(lf->sort_key), lf->sort_key);
+	}
+	if ((!lf->sort_key) && (lf->sort_order != 0)) {
+		ioffset += sprintf(*pSqlStatement + ioffset, " ORDER BY TX_INDEX");
+	}
+	switch (lf->sort_order) {
+	case -1:
+		ioffset += sprintf(*pSqlStatement + ioffset, " DESC");
+		break;
+	case 1:
+		ioffset += sprintf(*pSqlStatement + ioffset, " ASC");
+		break;
+	default: /* no order for the filter, take default one */
+		break;
+	}
+
+	/* PSA(CG) : 24/10/2014 - WBA-333 : Use SQL offset if flag present */
+	if (isNoPageCount()) {
+		if (lf->max_count > 0) {
+			ioffset += sprintf(*pSqlStatement + ioffset, " LIMIT %d", lf->max_count);
+		}
+		if (lf->offset > 0) {
+			ioffset += sprintf(*pSqlStatement + ioffset, " OFFSET %d", lf->offset);
+		}
+	}
+	/* fin WBA-333 */
+}
+
+static int calculateFilterLen(LogFilter *lf) {
+	FilterRecord *f = NULL;
+	union FilterPrimary *p = NULL;
+	int sqlStatementSize = sizeof(" AND ") * (lf->filter_count - 1);
+	for (f = lf->filters; f < &lf->filters[lf->filter_count]; ++f) {
+		if (f->field != NULL && f->field->type != PSEUDOFIELD_OWNER) {
+			/* OR at the beginning except for first primary */
+			sqlStatementSize += sizeof("(  )") + sizeof(" OR ") * (f->n_primaries - 1) + sizeof("\"\"") * f->n_primaries;
+
+			for (p = f->primaries; p < &f->primaries[f->n_primaries]; ++p) {
+				if (f->op == OP_NONE) {
+					continue;
+				}
+
+				sqlStatementSize += strlen(f->name) + sizeof("TX_") + MAX_OP_SIZE;
+				switch (f->field->type) {
+				case FIELD_TEXT:
+					/* we have at most f->field->size quote to escape ! + the quotes themselves */
+					sqlStatementSize += strlen(p->text) * sizeof("\'") + sizeof("''") + sizeof("ESCAPE '\\'");
+					break;
+				default:
+					sqlStatementSize += 2 * MAX_INT_DIGITS + sizeof(" NOT") + sizeof(" BETWEEN  AND ");
+				}
 			}
 		}
 	}
+
+	if (lf->sort_key) {
+		sqlStatementSize += sizeof(" ORDER BY ''") + strlen(lf->sort_key) + sizeof("TX_"); /* TX_ in case of INDEX */
+	} else {
+		/* if we have a sort order but no sort key, use (TX_)INDEX as a sort_key */
+		sqlStatementSize += sizeof(" ORDER BY TX_INDEX");
+	}
+
+	/* lf->sort_order : either we have " DESC", " ASC" or nothing */
+	sqlStatementSize += sizeof(" DESC");
+	/* PSA(CG) : 24/10/2014 - WBA-333 : sqlStatementSize incrementation for LIMIT and OFFSET storage */
+	sqlStatementSize += sizeof(" LIMIT NNNNNNN ") + sizeof(" OFFSET NNNNNNNNNNN ");
+	/* fin WBA-333 */
+
+	return sqlStatementSize;
 }
 
 static char* sqlite_wildcard(FilterRecord *f, char *p_text) {
@@ -432,7 +450,7 @@ static void buildEntry(LogEntry *entry, int i) {
 		tr_parsetime(dao->getFieldValueByNum(dao, i), tms);
 		*(TimeStamp*) (entry->record->buffer + field->offset) = tms[0];
 	}
-		break;
+	break;
 	case FIELD_INDEX:
 	case FIELD_INTEGER:
 		*(Integer*) (entry->record->buffer + field->offset) = dao->getFieldValueAsIntByNum(dao, i);

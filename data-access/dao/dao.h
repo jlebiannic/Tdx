@@ -11,8 +11,10 @@ typedef struct Dao {
 	int (*execQuery)(struct Dao*, const char*);
 	int (*execQueryMultiResults)(struct Dao*, const char*);
 	int (*execQueryParams)(struct Dao*, const char*, const char*[], int);
-	int (*execQueryParamsMultiResults)(struct Dao*, const char*, int);
-	void (*getEntry)(struct Dao*, const char*, const char*, const char*);
+	int (*execQueryParamsMultiResults)(struct Dao*, const char*, const char*[], int);
+	unsigned int (*newEntry)(struct Dao*, const char *table);
+	int (*updateEntries)(struct Dao*, const char*, const char*[], const char*[], int nb, const char*);
+	int (*getEntries)(struct Dao*, const char*, const char*[], int, const char*, const char*[]);
 	void (*getNextEntry)(struct Dao*);
 	int (*hasNextEntry)(struct Dao*);
 	char* (*getFieldValue)(struct Dao*, const char*);
@@ -21,8 +23,6 @@ typedef struct Dao {
 	char* (*getFieldValueByNum)(struct Dao*, int);
 	int (*getFieldValueAsIntByNum)(struct Dao*, int);
 	double (*getFieldValueAsDoubleByNum)(struct Dao*, int);
-	unsigned int (*newEntry)(struct Dao*, const char *table);
-	int (*updateEntries)(struct Dao*, const char*, const char*[], const char*[], int nb, const char*);
 	void (*clearResult)(struct Dao*);
 	int (*beginTrans)(struct Dao*);
 	int (*endTrans)(struct Dao*);

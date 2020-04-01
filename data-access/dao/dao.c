@@ -33,20 +33,15 @@ void Dao_logDebug(const char *fctName, const char *msg) {
 }
 
 void Dao_logDebugFormat(char *formatAndParams, ...) {
-#ifdef DEBUG
+	if (getenv("DATA_ACCESS_DEBUG") != NULL) {
 	va_list ap;
 	va_start(ap, formatAndParams);
 	vprintf(formatAndParams, ap);
 	printf("\n");
 	fflush(stdout);
 	va_end(ap);
-#endif
 }
-
-/**
- * Find entries in database with filter
- * return -1 if errors, >= 0 otherwise
- * */
+}
 
 
 

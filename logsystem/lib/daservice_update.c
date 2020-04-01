@@ -14,7 +14,6 @@
 
 static int execUpdateQuery(LogEntry *entry, int rawmode);
 static void buildArraysForUpdateQuery(LogEntry *entry, int rawmode, char **fields, char **values, int *nb);
-static void addElement(char **array, char *element, int idx, int alloc);
 
 int Service_updateEntry(LogEntry *entry, int rawmode) {
 	/* UPDATE data SET ("..."='...',)* ("..."='...') WHERE TX_INDEX=entry->idx */
@@ -66,9 +65,9 @@ static void buildArraysForUpdateQuery(LogEntry *entry, int rawmode, char *fields
 				continue;
 			}
 			fieldName = allocStr("TX_%s", log->label->fields[i].name.string);
-			addElement(fields, fieldName, cpt, FALSE);
+			arrayAddElement(fields, fieldName, cpt, FALSE, FALSE);
 		} else {
-			addElement(fields, log->label->fields[i].name.string, cpt, TRUE);
+			arrayAddElement(fields, log->label->fields[i].name.string, cpt, TRUE, FALSE);
 		}
 
 		switch ((log->label->fields[i]).type) {
@@ -76,19 +75,19 @@ static void buildArraysForUpdateQuery(LogEntry *entry, int rawmode, char *fields
 			break;
 		case FIELD_NUMBER:
 			fieldValue = allocStr("%lf", *(Number*) (entry->record->buffer + log->label->fields[i].offset));
-			addElement(values, fieldValue, cpt, FALSE);
+			arrayAddElement(values, fieldValue, cpt, FALSE, FALSE);
 			break;
 		case FIELD_TIME:
 			fieldValue = allocStr("%s", tr_timestring("%a", *(TimeStamp*) (entry->record->buffer + log->label->fields[i].offset)));
-			addElement(values, fieldValue, cpt, FALSE);
+			arrayAddElement(values, fieldValue, cpt, FALSE, FALSE);
 			break;
 		case FIELD_INDEX:
 		case FIELD_INTEGER:
 			fieldValue = allocStr("%d", *(int*) (entry->record->buffer + log->label->fields[i].offset));
-			addElement(values, fieldValue, cpt, FALSE);
+			arrayAddElement(values, fieldValue, cpt, FALSE, FALSE);
 			break;
 		case FIELD_TEXT:
-			addElement(values, (char*) (entry->record->buffer + log->label->fields[i].offset), cpt, TRUE);
+			arrayAddElement(values, (char*) (entry->record->buffer + log->label->fields[i].offset), cpt, TRUE, FALSE);
 			break;
 		}
 		cpt++;
@@ -96,13 +95,4 @@ static void buildArraysForUpdateQuery(LogEntry *entry, int rawmode, char *fields
 	*nb = cpt;
 }
 
-static void addElement(char **array, char *element, int idx, int alloc) {
-	char *newElem = NULL;
-	if (alloc) {
-		newElem = malloc((strlen(element) + 1) * sizeof(char));
-		strcpy(newElem, element);
-	} else {
-		newElem = element;
-	}
-	array[idx] = newElem;
-}
+

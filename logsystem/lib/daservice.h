@@ -10,7 +10,6 @@
 
 #include "logsystem.definitions.h"
 
-char* Service_buildSelectQuery(Dao *dao, LogSystem *log, LogFilter *lf);
 int Service_findEntries(LogSystem *log, LogIndex **pIndexes, LogFilter *lf);
 int Service_findEntry(LogEntry *entry);
 int Service_updateEntry(LogEntry *entry, int rawmode);
