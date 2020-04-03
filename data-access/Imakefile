@@ -1,0 +1,35 @@
+ROOT=$(EDIHOME)/src
+LOGSYSLIB=$S/logsystem/lib
+SQLITE=$S/3rdParty/sqlite/3_8_11_1/include64
+PG=/usr/pgsql-12/include
+
+DAOOBJ=dao/pg/pgDao.$(OBJSFX) dao/dao.$(OBJSFX) commons/commons.$(OBJSFX) commons/daoFactory.$(OBJSFX) CoManager.$(OBJSFX)
+DAOLIB=libtdxdao.so
+
+CFLAGS=-I$(ROOT) -I$(LOGSYSLIB) -I$(SQLITE) -I$(PG) -fPIC -o $@
+
+all::	
+	@echo "Creating directories"
+	mkdir -p dao/pg
+	mkdir -p commons 
+
+all::	$(DAOOBJ) $(DAOLIB)
+
+PlainSource(dao/dao)
+PlainSource(dao/pg/pgDao)
+PlainSource(commons/commons)
+PlainSource(commons/daoFactory)
+PlainSource(CoManager)
+
+$(DAOLIB): $(DAOOBJ)
+	cc -shared $(DAOOBJ) -o $(DAOLIB)
+
+install::	$(LIBDIR)/$(DAOLIB)
+
+$(LIBDIR)/$(DAOLIB):: $(DAOLIB)
+	cp $(DAOLIB) $(LIBDIR)
+
+clean::
+	if [ -e $(LIBDIR)/$(DAOLIB) ]; then rm $(DAOLIB); fi
+	if [ -e $(LIBDIR)/$(DAOLIB) ]; then rm $(LIBDIR)/$(DAOLIB); fi
+	find . -name "*.$(OBJSFX)" -exec rm {} \;

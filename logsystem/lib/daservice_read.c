@@ -24,14 +24,13 @@ static int MAXCOUNT = 100000;
 int Service_findEntries(LogSystem *log, LogIndex **pIndexes, LogFilter *lf) {
 	int nbResults = -1;
 
-	char **values = NULL;
+	char **values = (char**) malloc(sizeof(char**));
 	char *filter = NULL;
 	int nbValues = -1;
 	buildFilterAndValues(&filter, lf, values, &nbValues);
-
+	
 	char *fields[] = { "TX_INDEX" };
 	int resQuery = log->dao->getEntries(log->dao, log->table, (const char **)fields, 1, filter, (const char **)values);
-
 	freeArray(values, nbValues);
 	free(values);
 	free(filter);
@@ -175,7 +174,7 @@ static void buildFilterAndValues(char **pSqlStatement, LogFilter *lf, char **val
 	if (!lf) {
 		return;
 	}
-	values = (char**) malloc(sizeof(char**));
+	
 	*pSqlStatement = malloc(calculateFilterLen(lf));
 
 	for (f = lf->filters; f < &lf->filters[lf->filter_count]; ++f) {
@@ -256,7 +255,7 @@ static void buildFilterAndValues(char **pSqlStatement, LogFilter *lf, char **val
 						p_text = sqlite_wildcard(f, p->text);
 						// TODO use PQescapeLiteral insteadof sqlite_wildcard (=> tests)
 					ioffset += sprintf(*pSqlStatement + ioffset, "%s $", getOpString(f->op));
-						arrayAddElement(values, p_text, cpt, TRUE, FALSE);
+						arrayAddElement(values, p_text, cpt, TRUE, TRUE);
 						cpt++;
 						if ((f->op == OP_LEQ) || (f->op == OP_LNEQ)) {
 						ioffset += sprintf(*pSqlStatement + ioffset, " ESCAPE '\\'");

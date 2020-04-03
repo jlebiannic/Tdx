@@ -79,7 +79,12 @@ int PgDao_openDB(PgDao *This, const char *conninfo) {
 
 	if (!conninfo) {
 		// TODO a supprimer
-		conninfo = "host=localhost port=5432 dbname=postgres user=postgres password=generix";
+		//conninfo = "host=localhost port=5432 dbname=postgres user=postgres password=generix";
+		conninfo = getenv("PG_CONNINFO");
+		if ( ! conninfo ) {
+			This->logError("Connection to database failed", "Please check environment variable PG_CONNINFO");
+                	return FALSE;
+		}
 	}
 	/* Cree une connexion e la base de donnees */
 	This->conn = PQconnectdb(conninfo);
@@ -171,9 +176,11 @@ int PgDao_getEntries(PgDao *This, const char *table, const char *fields[], int n
 	This->logDebug("PgDao_execQueryParamsMultiResults", "start");
 	char *selectFields = arrayJoin(fields, nbFields, ",");
 	int nbValues = 0;
-	char *filterWithPgStx = filter != NULL && strlen(filter) > 0 ? p_toPgStx(filter, &nbValues) : "";
-	char *query = allocStr("Select %s from %s where %s", selectFields, table, filterWithPgStx);
+	char *query = filter != NULL && strlen(filter) > 0 ? 
+					allocStr("Select %s from %s where %s", selectFields, table, p_toPgStx(filter, &nbValues))
+					:allocStr("Select %s from %s", selectFields, table);
 	This->logDebugFormat("[getEntries]select query = %s\n", query);
+	
 	int res = This->execQueryParamsMultiResults(This, query, values, nbValues);
 	free(query);
 	free(selectFields);
