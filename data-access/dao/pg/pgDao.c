@@ -83,7 +83,7 @@ int PgDao_openDB(PgDao *This, const char *conninfo) {
 		conninfo = getenv("PG_CONNINFO");
 		if ( ! conninfo ) {
 			This->logError("Connection to database failed", "Please check environment variable PG_CONNINFO");
-                	return FALSE;
+            return FALSE;
 		}
 	}
 	/* Cree une connexion e la base de donnees */
@@ -136,8 +136,9 @@ int PgDao_execQuery(PgDao *This, const char *query) {
 int PgDao_execQueryMultiResults(PgDao *This, const char *query) {
 	This->logDebug("PgDao_execQueryMultiResults", "start");
 	int res = FALSE;
-	if (This->beginTrans(This)) {
-		if (This->openDB(This, NULL)) {
+
+	if (This->openDB(This, NULL)) {
+		if (This->beginTrans(This)) {
 			char *cursorQuery = allocStr("%s %s", DECLARE_CURSOR_CMD, query);
 			PgDao_addResult(This, PQexec(This->conn, cursorQuery));
 			free(cursorQuery);
@@ -156,7 +157,7 @@ int PgDao_execQueryMultiResults(PgDao *This, const char *query) {
 }
 
 int PgDao_execQueryParams(PgDao *This, const char *queryFormat, const char *paramValues[], int nbParams) {
-	This->logDebug("PgDao_execQueryMultiResults", "start");
+	This->logDebug("PgDao_execQueryParams", "start");
 	int res = FALSE;
 	if (This->openDB(This, NULL)) {
 		return p_execQueryParams(This, queryFormat, paramValues, nbParams);
@@ -173,7 +174,7 @@ int PgDao_execQueryParams(PgDao *This, const char *queryFormat, const char *para
  * 	values: values for "$" in filter
  * */
 int PgDao_getEntries(PgDao *This, const char *table, const char *fields[], int nbFields, const char *filter, const char *values[]) {
-	This->logDebug("PgDao_execQueryParamsMultiResults", "start");
+	This->logDebug("PgDao_getEntries", "start");
 	char *selectFields = arrayJoin(fields, nbFields, ",");
 	int nbValues = 0;
 	char *query = filter != NULL && strlen(filter) > 0 ? 
@@ -188,14 +189,15 @@ int PgDao_getEntries(PgDao *This, const char *table, const char *fields[], int n
 }
 
 int PgDao_execQueryParamsMultiResults(PgDao *This, const char *query, const char *values[], int nbValues) {
+	This->logDebug("PgDao_execQueryParamsMultiResults", "start");
 	int res = FALSE;
-	if (This->beginTrans(This)) {
-		if (This->openDB(This, NULL)) {
+	if (This->openDB(This, NULL)) {
+		if (This->beginTrans(This)) {
 			char *cursorQuery = allocStr("%s %s", DECLARE_CURSOR_CMD, query);
 			p_execQueryParams(This, cursorQuery, values, nbValues);
 			free(cursorQuery);
 			if (PQresultStatus(This->result) != PGRES_COMMAND_OK) {
-				This->logError("PgDao_execQueryMultiResults declare cursor failed", PQerrorMessage(This->conn));
+				This->logError("PgDao_execQueryParamsMultiResults declare cursor failed", PQerrorMessage(This->conn));
 				PgDao_clearResult(This);
 			} else {
 				This->cursorMode = TRUE;
@@ -425,7 +427,7 @@ static int PgDao_fetch(PgDao *This) {
 		PgDao_addResult(This, PQexec(This->conn, fetchQuery));
 		free(fetchQuery);
 		if (PQresultStatus(This->result) != PGRES_TUPLES_OK) {
-			This->logError("PgDao_execQueryMultiResults fetch failed", PQerrorMessage(This->conn));
+			This->logError("PgDao_fetch fetch failed", PQerrorMessage(This->conn));
 			PgDao_clearResult(This);
 		} else {
 			res = PQntuples(This->result);
@@ -439,7 +441,7 @@ static int PgDao_doCommand(PgDao *This, char *command) {
 	PGresult *res;
 	res = PQexec(This->conn, command);
 	if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-		This->logErrorFormat("doCommand: %s failed", command, PQerrorMessage(This->conn));
+		This->logErrorFormat("doCommand: %s failed, message=%s (status code=%d)", command, PQerrorMessage(This->conn), (int)PQresultStatus(res));
 		PQclear(res);
 		return FALSE;
 	}

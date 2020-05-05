@@ -24,7 +24,7 @@
 	
 ========================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_logsysrem.c 55238 2019-11-19 13:30:06Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: tr_logsysrem.c 55433 2020-03-16 12:37:08Z sodifrance $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 25.09.96/JN	Created
@@ -56,7 +56,8 @@ MODULE("@(#)TradeXpress $Id: tr_logsysrem.c 55238 2019-11-19 13:30:06Z sodifranc
   3.13 09.11.99/HT	Fixed Copying local to remote file.
   3.14 04.12.99/KP	Changed tr_rlsTryGetUniq() parameters.
   TX-3123 - 19.07.2019 - Olivier REMAUD - UNICODE adaptation
-  Jira TX-3143 19.11.2019 - Olivier REMAUD - Passage au 64 bits 
+  Jira TX-3143 19.11.2019 - Olivier REMAUD - Passage au 64 bits
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 ========================================================================*/
 
 #include <sys/types.h>
@@ -152,7 +153,9 @@ void _dump_rls( rls *rls )
 
 int tr_rlsCloseFile( FILE *fp )
 {
+#if 0
 	long    h_osfhandle = -1;
+#endif
 	int i;
 	rls	*rls;
 
@@ -225,7 +228,7 @@ struct entryListTmp {
 static int tr_rlsFindFirst_keytype;
 static int tr_rlsFindFirst_sortdir;
 
-static int assert_time_t_is_int[(sizeof(time_t) != 8) ? -1 : 1]; 
+static int assert_time_t_is_64[(sizeof(time_t) != 8) ? -1 : 1]; 
 /*
  * ORD :
  * Cette astuce pour faire un assert servait à tester que le time_t est bien en 32 bits ... 
@@ -895,7 +898,6 @@ int tr_rlsIsValidEntry(LogSysHandle *handle)
 void rls_message(rls *rls, int locus, char *fmt, ...)
 {
 	va_list ap;
-	FILE *fp;
 
 	tr_mbFputs("rls error:\n", stderr);
 	

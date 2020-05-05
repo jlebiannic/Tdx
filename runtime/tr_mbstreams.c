@@ -14,7 +14,8 @@ MODULE("@(#)TradeXpress $Id: tr_mbstreams.c $")
   TX-3123 - 12.06.2019 - Olivier REMAUD - UNICODE adaptation
   TX-3123 - 19.07.2019 - Olivier REMAUD - UNICODE adaptation
   Jira TX-3123 24.09.2019 - Olivier REMAUD - UNICODE adaptation  
-  Jira TX-3123 10.02.2020 - Olivier REMAUD - UNICODE adaptation 
+  Jira TX-3123 10.02.2020 - Olivier REMAUD - UNICODE adaptation
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 ========================================================================*/
 
 #include <stdio.h>
@@ -45,11 +46,13 @@ int _tr_mbFputs( char *string, FILE *stream, int maxCount /* -1 = no limit */, i
 		
 	if ( stream == stdout ) {
 		current_initd = stdout_initd;
+		stdout_initd = 1; /* will be initd */
 		current_encoding = stdout_encoding;
 		current_converter = stdout_converter;
 	} 
 	else if (stream == stderr ) {
 		current_initd = stderr_initd;
+		stderr_initd = 1; /* will be initd */
 		current_encoding = stderr_encoding;
 		current_converter = stderr_converter;
 	}
@@ -115,7 +118,7 @@ int _tr_mbFputs( char *string, FILE *stream, int maxCount /* -1 = no limit */, i
 		size_t res = iconv( current_converter, &pInUtf8, &leftIn, &pOut, &leftOut );
 		if (res == (size_t) -1 ) {
 			/* conversion failed */
-			free( buffer );
+			tr_free( buffer ); buffer = NULL;
 			/* TODO : Externalize message */
 			tr_Log( "Iconv conversion failed : bad encoding" );
 			return EOF;
@@ -123,7 +126,7 @@ int _tr_mbFputs( char *string, FILE *stream, int maxCount /* -1 = no limit */, i
 		/* Conversion OK */
 		size_t outputBytes = szOut - leftOut;
 		size_t written = fwrite( buffer, sizeof(char), outputBytes, stream );
-		tr_free( buffer );
+		tr_free( buffer ); buffer = NULL;
 		if ( written != outputBytes ) {
 			return EOF;
 		}
@@ -226,13 +229,13 @@ char* tr_mbFgets( char *buffer, size_t buffsz, FILE *stream )
 		/* 8 bytes ASCII/EBCDIC based charmap : some chars may take 2 bytes in UTF-8 */
 		size_t leftOut = buffsz * 2;
 
-		char *bufferUtf8 = (char*) calloc( leftOut, sizeof(char) );
+		char *bufferUtf8 = (char*) tr_calloc( leftOut, sizeof(char) );
 		char *pOutUtf8 = bufferUtf8;
 		char *pIn = text;
 		size_t res = iconv( current_converter, &pIn, &leftIn, &pOutUtf8, &leftOut );
 		if (res == (size_t) -1 ) {
 			/* conversion failed */
-			free( bufferUtf8 );
+			tr_free( bufferUtf8 ); bufferUtf8 = NULL;
 			/* TODO : Externalize message */
 			tr_Log( "Iconv conversion failed : bad encoding" );
 			return NULL;
@@ -240,13 +243,13 @@ char* tr_mbFgets( char *buffer, size_t buffsz, FILE *stream )
 		/* Conversion OK */
 		int len = strlen( bufferUtf8 );
 		if (len >= buffsz ) {
-			free( bufferUtf8 );
+			tr_free( bufferUtf8 ); bufferUtf8 = NULL;
 			/* TODO : Externalize message */
 			tr_Log( "Iconv conversion failed : decoded string too long" );
 			return NULL;	
 		}
 		strncpy( buffer, bufferUtf8, buffsz - 1 );
-		free( bufferUtf8 );
+		tr_free( bufferUtf8 ); bufferUtf8 = NULL;
 		text = buffer;
 		int i;
 		for (i = 0; i < current_read_padding; ++i) {
@@ -282,7 +285,7 @@ int tr_mbVfprintf( FILE *stream, char *format, va_list ap )
     vsnprintf( tmp, sz, format, ap );
 
 	tr_mbFputs( tmp, stream );
-	tr_free( tmp );
+	tr_free( tmp ); tmp = NULL;
 
 	return sz - 1;
 }

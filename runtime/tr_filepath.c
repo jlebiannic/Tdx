@@ -8,10 +8,17 @@
         Copyright (c) 2010 Generix group
 ========================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_filepath.c 47429 2013-10-29 15:27:44Z cdemory $")
+MODULE("@(#)TradeXpress $Id: tr_filepath.c 55433 2020-03-16 12:37:08Z sodifrance $")
+/*============================================================================
+  Record all changes here and update the above string accordingly.
+
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
+========================================================================*/
+
 /*========================================================================
  $Log:  $
 ========================================================================*/
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -84,7 +91,7 @@ char *tfSubstituteEnv(char *string, double mask)
 			continue;
 		}
 		if ((c == '%') && (ENV_TIME)) {
-			sprintf(bufp, "%08X", time(NULL));
+			sprintf(bufp, "%08zX", time(NULL));
 			bufp += strlen(bufp);
 			continue;
 		}

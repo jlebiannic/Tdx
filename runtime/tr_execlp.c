@@ -8,7 +8,7 @@
 	Copyright (c) 1992 Telecom Finland/EDI Operations
 ============================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_execlp.c 47429 2013-10-29 15:27:44Z cdemory $")
+MODULE("@(#)TradeXpress $Id: tr_execlp.c 55433 2020-03-16 12:37:08Z sodifrance $")
 /*LIBRARY(libruntime_version)
 */
 /*============================================================================
@@ -21,6 +21,7 @@ MODULE("@(#)TradeXpress $Id: tr_execlp.c 47429 2013-10-29 15:27:44Z cdemory $")
   3.05 07.12.99/JR	Castings addded. Spawn returned 255 when it should
   			have returned -1.
   4.00 27.12.05/LM	Spawnlp return -1 if error like spawnvp bugZ 1532
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 ============================================================================*/
 
 #include <stdio.h>
@@ -130,11 +131,9 @@ double tr_Spawnlp ( char *args, ... )
 {
 	va_list ap;
 	int	status;
-	int	code;
 	char    *argv[256];
 	int     i;
 	int     pid;
-	char    *tmp;
 #ifndef MACHINE_LINUX
 	extern int errno;
 #endif

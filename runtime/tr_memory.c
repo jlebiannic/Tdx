@@ -11,7 +11,7 @@
 ============================================================================*/
 #define TR_MEMORY
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_memory.c 55238 2019-11-19 13:30:06Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: tr_memory.c 55433 2020-03-16 12:37:08Z sodifrance $")
 /*LIBRARY(libruntime_version)
 */
 /*============================================================================
@@ -31,6 +31,7 @@ MODULE("@(#)TradeXpress $Id: tr_memory.c 55238 2019-11-19 13:30:06Z sodifrance $
   28.08.2013/TCE(CG) Jira TX-2441 Pointer directly copied into another pointer
   20.09.2016/SCH(CG) Jira TX-2899 Cancellation of previous TX-2441 modification.
   Jira TX-3143 19.11.2019 - Olivier REMAUD - Passage au 64 bits
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 ============================================================================*/
 
 #include <stdio.h>
@@ -53,74 +54,74 @@ MODULE("@(#)TradeXpress $Id: tr_memory.c 55238 2019-11-19 13:30:06Z sodifrance $
 
 struct tr_errtable tr_errs[] =
 {
-/*  0 */ "Too much data in the element",
-									TRE_EXCESS_COMPONENTS,
-/*  1 */ "Truncated segment",
-									TRE_TRUNCATED_SEGMENT,
-/*  2 */ "Too short: %d minimum",
-									TRE_TOO_SHORT,
-/*  3 */ "Too many %s groups (%d), %d maximum",
-									TRE_TOO_MANY_GROUPS,
-/*  4 */ "Too many %s segments (%d), %d maximum",
-									TRE_TOO_MANY_SEGMENTS,
-/*  5 */ "Too long: %d maximum",
-									TRE_TOO_LONG,
-/*  6 */ "Too few groups %s (%d), %d minimum",
-									TRE_TOO_FEW_GROUPS,
-/*  7 */ "Too few segments %s (%d), %d minimum",
-									TRE_TOO_FEW_SEGMENTS,
-/*  8 */ "Cannot find character set %s.",
-									TRE_CHARSET_NOT_FOUND,
-/*  9 */ "Out of memory: attempted to allocate %d bytes, already %d bytes previously allocated",
-									0,
-/* 10 */ "Unexpected end of file",
-									TRE_UNEXPECTED_EOF,
-/* 11 */ "Missing element",
-									TRE_MISSING_ELEMENT,
-/* 12 */ "Missing component",
-									TRE_MISSING_COMPONENT,
-/* 13 */ "Missing mandatory element",
-									TRE_MISSING_ELEMENT,
-/* 14 */ "Missing mandatory component",
-									TRE_MISSING_COMPONENT,
-/* 15 */ "Too little data requested",
-									TRE_REQUEST_UNDERRUN,
-/* 16 */ "Out of messages",
-									0,
-/* 17 */ "Segment '%s' does not belong to the message",
-									TRE_NO_PLACE_FOR_SEGMENT,
-/* 18 */ "Excess data in the segment",
-									TRE_EXCESS_DATA_IN_SEGMENT,
-/* 19 */ "[This space intentionally left blank]",
-									0,
-/* 20 */ "Cannot output data",
-									TRE_IO_ERROR,
-/* 21 */ "Unknown data type: '%c' (\\0%o)",
-									TRE_UNKNOWN_DATATYPE,
-/* 22 */ "Corrupted character set %s",
-									TRE_CORRUPT_CHARSET,
-/* 23 */ "Message contains errors",
-									TRE_MESSAGE_WITH_ERROR,
-/* 24 */ "Segment contains errors",
-									TRE_SEGMENT_WITH_ERROR,
-/* 25 */ "Invalid type %s field%s",
-									TRE_ELEMENT_WITH_ERROR,
-/* 26 */ "Invalid type %s field: '%c' (\\0%o)",
-									TRE_ELEMENT_WITH_ERROR,
-/* 27 */ "Error opening '%s': %d",
-									TRE_IO_ERROR,
-/* 28 */ "Error reading '%s': %d",
-									TRE_IO_ERROR,
-/* 29 */ "Extraneous data before message thrown away",
-									TRE_JUNK_OUTSIDE_MESSAGE,
-/* 30 */ "Segment %s inside the message",
-									TRE_JUNK_INSIDE_MESSAGE,
-/* 31 */ "Segment %s overflowed",
-									TRE_SEGMENT_OVERFLOW,
-/* 32 */ "Group %s overflowed",
-									TRE_GROUP_OVERFLOW,
-/* 33 */ "%s",
-									TRE_XERCES_MESSAGE,
+/*  0 */ { "Too much data in the element",
+									TRE_EXCESS_COMPONENTS },
+/*  1 */ { "Truncated segment",
+									TRE_TRUNCATED_SEGMENT },
+/*  2 */ { "Too short: %d minimum",
+									TRE_TOO_SHORT },
+/*  3 */ { "Too many %s groups (%d), %d maximum",
+									TRE_TOO_MANY_GROUPS },
+/*  4 */ { "Too many %s segments (%d), %d maximum",
+									TRE_TOO_MANY_SEGMENTS },
+/*  5 */ { "Too long: %d maximum",
+									TRE_TOO_LONG },
+/*  6 */ { "Too few groups %s (%d), %d minimum",
+									TRE_TOO_FEW_GROUPS },
+/*  7 */ { "Too few segments %s (%d), %d minimum",
+									TRE_TOO_FEW_SEGMENTS },
+/*  8 */ { "Cannot find character set %s.",
+									TRE_CHARSET_NOT_FOUND },
+/*  9 */ { "Out of memory: attempted to allocate %d bytes, already %d bytes previously allocated",
+									0 },
+/* 10 */ { "Unexpected end of file",
+									TRE_UNEXPECTED_EOF },
+/* 11 */ { "Missing element",
+									TRE_MISSING_ELEMENT },
+/* 12 */ { "Missing component",
+									TRE_MISSING_COMPONENT },
+/* 13 */ { "Missing mandatory element",
+									TRE_MISSING_ELEMENT },
+/* 14 */ { "Missing mandatory component",
+									TRE_MISSING_COMPONENT },
+/* 15 */ { "Too little data requested",
+									TRE_REQUEST_UNDERRUN },
+/* 16 */ { "Out of messages",
+									0 },
+/* 17 */ { "Segment '%s' does not belong to the message",
+									TRE_NO_PLACE_FOR_SEGMENT },
+/* 18 */ { "Excess data in the segment",
+									TRE_EXCESS_DATA_IN_SEGMENT },
+/* 19 */ { "[This space intentionally left blank]",
+									0 },
+/* 20 */ { "Cannot output data",
+									TRE_IO_ERROR },
+/* 21 */ { "Unknown data type: '%c' (\\0%o)",
+									TRE_UNKNOWN_DATATYPE },
+/* 22 */ { "Corrupted character set %s",
+									TRE_CORRUPT_CHARSET },
+/* 23 */ { "Message contains errors",
+									TRE_MESSAGE_WITH_ERROR },
+/* 24 */ { "Segment contains errors",
+									TRE_SEGMENT_WITH_ERROR },
+/* 25 */ { "Invalid type %s field%s",
+									TRE_ELEMENT_WITH_ERROR },
+/* 26 */ { "Invalid type %s field: '%c' (\\0%o)",
+									TRE_ELEMENT_WITH_ERROR },
+/* 27 */ { "Error opening '%s': %d",
+									TRE_IO_ERROR },
+/* 28 */ { "Error reading '%s': %d",
+									TRE_IO_ERROR },
+/* 29 */ { "Extraneous data before message thrown away",
+									TRE_JUNK_OUTSIDE_MESSAGE },
+/* 30 */ { "Segment %s inside the message",
+									TRE_JUNK_INSIDE_MESSAGE },
+/* 31 */ { "Segment %s overflowed",
+									TRE_SEGMENT_OVERFLOW },
+/* 32 */ { "Group %s overflowed",
+									TRE_GROUP_OVERFLOW },
+/* 33 */ { "%s",
+									TRE_XERCES_MESSAGE }
 };
 
 #else
@@ -198,6 +199,15 @@ struct tr_errtable tr_errs[] =
 };
 #endif
 
+#if defined(DEBUG) && MEM_DEBUG==1
+char *TDXMemDebug_tr_strdup(char *s, int line_strdup, char *file_strdup);
+void *TDXMemDebug_tr_malloc(int size, int line_malloc, char *file_malloc);
+void *TDXMemDebug_tr_calloc(int n, int size, int line_malloc, char *file_malloc);
+void TDXMemDebug_tr_free(void *p, int line_free, char *file_free);
+void *TDXMemDebug_tr_realloc(void *p, int size, int line_realloc, char *file_realloc);
+char *TDXMemDebug_tr_strndup(char *s, int len, int line_strdup, char *file_strdup);
+void *TDXMemDebug_tr_zalloc(int size, int line_malloc, char *file_malloc);
+#endif
 
 
 static char **memtab = NULL;
@@ -211,7 +221,7 @@ void MemIdx_InitList(MemIdxNode List[], MemIdxNode *prevNode)
 {
 	size_t i;
 
-	tr_Trace(1, 1, "*** Init memory bloc %d *** List 0x%x\n", TR_CONST_MEM_HASH_SIZE, List);
+	tr_Trace(1, 1, "*** Init memory bloc %d *** List %p\n", TR_CONST_MEM_HASH_SIZE, List);
 	for (i = 0; i < TR_CONST_MEM_HASH_SIZE-1; i++) {
 		List[i].ptr = NULL;
 		List[i].next = &List[i+1];
@@ -233,7 +243,7 @@ void MemIdx_dump(void *iTabNode)
 		tr_Trace(4, 1, "*** dump of used addresses *** Count %d\n\n", tabNode->count);
 		node = tabNode->nodes->LastUsed;
 		while (node) {
-			tr_Trace(4, 1, "node 0x%x ptr 0x%x next 0x%x Index %d\n", node, node->ptr, node->next, node->index);
+			tr_Trace(4, 1, "node %p ptr %p next %p Index %d\n", node, node->ptr, node->next, node->index);
 			node = node->next;
 		}
 	}
@@ -241,7 +251,7 @@ void MemIdx_dump(void *iTabNode)
 		tr_Trace(5, 1, "*** dump of free addresses *** Count %d\n\n", tabNode->count);
 		node = tabNode->nodes->FirstFree;
 		while (node) {
-			tr_Trace(5, 1, "node 0x%x alloc 0x%x next 0x%x Index %d\n", node, node->ptr, node->next, node->index);
+			tr_Trace(5, 1, "node %p alloc %p next %p Index %d\n", node, node->ptr, node->next, node->index);
 			node = node->next;
 		}
 	}
@@ -254,11 +264,11 @@ int MemIdx_CreateNode(void **nodes)
 
 	*nodes = calloc(1, sizeof(MemIdxMainListTab));
 	nodesTab = *nodes;
-	tr_Trace(3, 1, "(MemIdx_CreateNode %d) nodes 0x%x size %d prev 0x%x next 0x%x\n", __LINE__, 
+	tr_Trace(3, 1, "(MemIdx_CreateNode %d) nodes %p size %d prev %p next %p\n", __LINE__, 
 				*nodes, sizeof(MemIdxMainListTab), &nodesTab->prev, &nodesTab->next);
 	MemIdx_InitList(&nodesTab->tab[0], NULL);
 	nodesTab->FirstFree = &nodesTab->tab[0];
-	tr_Trace(3, 1, "(MemIdx_CreateNode %d) nodes 0x%x FirstFree 0x%x\n", __LINE__, *nodes, nodesTab->FirstFree);
+	tr_Trace(3, 1, "(MemIdx_CreateNode %d) nodes %p FirstFree %p\n", __LINE__, *nodes, nodesTab->FirstFree);
 	return sizeof(MemIdxMainListTab);
 }
 
@@ -279,7 +289,6 @@ void MemIdx_CopyInfo(MemIdxNode *iInfo, MemIdxNode *oInfo)
 int MemIdx_ClearNodes(void *iTabNode)
 {
 	MemIdxTabNode *tabNode = (MemIdxTabNode*)iTabNode;
-	MemIdxListTab *ListTab;
 	MemIdxMainListTab *nodesTab = tabNode->nodes;
 
 	tr_Trace(3, 1, "(MemIdx_ClearNodes %d) count %d\n", __LINE__, tabNode->count);
@@ -307,7 +316,7 @@ int MemIdx_AddNode(void *iTabNode, void *iInfo)
 	MemIdxNode *info = (MemIdxNode*)iInfo, *result;
 	MemIdxListTab *rootTab = NULL, *newTab;
 
-	tr_Trace(3, 1, "(MemIdx_AddNode %d) count %d ptr 0x%x memIndex %d nodes 0x%x FirstFree 0x%x\n", __LINE__, 
+	tr_Trace(3, 1, "(MemIdx_AddNode %d) count %d ptr %p memIndex %d nodes %p FirstFree %p\n", __LINE__, 
 			tabNode->count, info->ptr, info->index, tabNode->nodes, tabNode->nodes->FirstFree);
 	if (!tabNode || !tabNode->nodes) {
 		fprintf(stderr, "*** ERROR memtabnode is null, missing call to CreateNodes  ***\n");
@@ -315,9 +324,9 @@ int MemIdx_AddNode(void *iTabNode, void *iInfo)
 	}
 	MemIdx_dump(tabNode);
 	if (tabNode->nodes->FirstFree == NULL) {
-		tr_Trace(3, 1, "(MemIdx_AddNode %d) New bloc, count %d ptr 0x%x memIndex %d\n", __LINE__, tabNode->count, info->ptr, info->index);
+		tr_Trace(3, 1, "(MemIdx_AddNode %d) New bloc, count %d ptr %p memIndex %d\n", __LINE__, tabNode->count, info->ptr, info->index);
 		rootTab = (MemIdxListTab *)&tabNode->nodes->prev;  /* rootTab point the first list of nodes */
-		newTab = calloc(1, sizeof(MemIdxListTab));
+		newTab = tr_calloc(1, sizeof(MemIdxListTab));
 		if (!newTab) {
 			fprintf(stderr,"*** MEMORY ALLOCATION ERROR! ***\n");
 			return 0;
@@ -342,7 +351,7 @@ int MemIdx_AddNode(void *iTabNode, void *iInfo)
 	tabNode->nodes->FirstFree = result->next;
 	result->next = tabNode->nodes->LastUsed;
 	tabNode->nodes->LastUsed = result;
-	tr_Trace(3, 1, "(MemIdx_AddNode %d) count %d ptr 0x%x memIndex %d FirstFree 0x%x\n", __LINE__, 
+	tr_Trace(3, 1, "(MemIdx_AddNode %d) count %d ptr %p memIndex %d FirstFree %p\n", __LINE__, 
 			 tabNode->count, info->ptr, info->index, tabNode->nodes->FirstFree);
 	MemIdx_dump(tabNode);
 	return 1;
@@ -355,7 +364,7 @@ int MemIdx_RemoveNode(void *iTabNode, void *ioInfo)
 	MemIdxNode *info = (MemIdxNode*)ioInfo;
 	MemIdxNode *node, *result = NULL;
 
-	tr_Trace(3, 1, "MemIdx_RemoveNode %d ptr 0x%x last used  0x%x\n", __LINE__, info->ptr, 
+	tr_Trace(3, 1, "MemIdx_RemoveNode %d ptr %p last used  %p\n", __LINE__, info->ptr, 
 			tabNode->nodes->LastUsed ? tabNode->nodes->LastUsed->ptr : NULL);
 	if (!tabNode->nodes->LastUsed){
 		return 0;  /* No node used */
@@ -367,7 +376,7 @@ int MemIdx_RemoveNode(void *iTabNode, void *ioInfo)
 	else {
 		node = MemIdx_GetPrevNode(tabNode, info);
 		if (node) {
-			tr_Trace(3, 1, "MemIdx_RemoveNode %d ptr 0x%x memindex %d \n", __LINE__, info->ptr, info->index);
+			tr_Trace(3, 1, "MemIdx_RemoveNode %d ptr %p memindex %d \n", __LINE__, info->ptr, info->index);
 			result = node->next;
 			node->next = node->next->next;  /* point to the next used node */
 		}
@@ -382,7 +391,7 @@ int MemIdx_RemoveNode(void *iTabNode, void *ioInfo)
 		tabNode->count--;
 		return 1;
 	}
-	tr_Trace(3, 1, "MemIdx_RemoveNode %d ptr 0x%x not found \n", __LINE__, info->ptr);
+	tr_Trace(3, 1, "MemIdx_RemoveNode %d ptr %p not found \n", __LINE__, info->ptr);
 	return 0;
 }
 
@@ -391,8 +400,8 @@ int MemIdx_GetTabIdx(void *iInfo)
 {
 	MemIdxNode *info = (MemIdxNode*)iInfo;
 
-	int result = ((int)info->ptr & TR_CONST_MEM_HASH_MASK) / 16;
-	tr_Trace(3, 1, "MemIdx_GetTabIdx %d ptr 0x%x mask 0x%x result  %d\n", __LINE__, info->ptr, TR_CONST_MEM_HASH_MASK, result);
+	int result = (int)((long)info->ptr & (long)TR_CONST_MEM_HASH_MASK) / 16;
+	tr_Trace(3, 1, "MemIdx_GetTabIdx %d ptr %p mask 0x%x result  %d\n", __LINE__, info->ptr, TR_CONST_MEM_HASH_MASK, result);
 	return result;
 }
 
@@ -406,7 +415,7 @@ void* MemIdx_GetNode(void *iTabNode, void *iInfo)
 	if (info && tabNode->nodes) {
 		for (result = tabNode->nodes->LastUsed; result && result->ptr != info->ptr; result = result->next){;}
 	}
-	tr_Trace(3, 1, "MemIdx_GetNode %d result 0x%x\n", __LINE__, result);
+	tr_Trace(3, 1, "MemIdx_GetNode %d result %p\n", __LINE__, result);
 	return result;
 }
 
@@ -422,7 +431,7 @@ void* MemIdx_GetPrevNode(void *iTabNode, void *iInfo)
 			result = next;
 		}
 	}
-	tr_Trace(3, 1, "MemIdx_GetPrevNode %d result 0x%x\n", __LINE__, next ? result : NULL);
+	tr_Trace(3, 1, "MemIdx_GetPrevNode %d result %p\n", __LINE__, next ? result : NULL);
 	if (next){
 		return result;
 	}
@@ -453,7 +462,7 @@ void tr_InitMemoryManager (void)
 										  MemIdx_GetTabIdx,
 										  MemIdx_AddNode,
 										  MemIdx_RemoveNode);
-	tr_Trace(2, 1, "tr_InitMemoryManager RTEline %d memtabhash 0x%x\n", tr_sourceLine, memtabhash);
+	tr_Trace(2, 1, "tr_InitMemoryManager RTEline %d memtabhash %p\n", tr_sourceLine, memtabhash);
 	memptr = 0;
 }
 
@@ -493,7 +502,7 @@ char *tr_MemPool (char *s)
 #endif
 	MemIdx_SetInfo(memtab[memptr], memptr, &info);
 	tr_SearchTableAdd(memtabhash, &info);
-	tr_Trace(2, 1, "tr_MemPool RTEline %d ptr 0x%x result[%d] 0x%x\n", tr_sourceLine, s, memptr, memtab[memptr]);
+	tr_Trace(2, 1, "tr_MemPool RTEline %d ptr %p result[%d] %p\n", tr_sourceLine, s, memptr, memtab[memptr]);
 
 	return memtab[memptr++];
 }
@@ -522,7 +531,7 @@ int tr_MemPoolRemove(char *s, int withFree)
 	/* check if the pointer is in the pool */
 	info.ptr = s;
 	i = tr_SearchTableRemove(memtabhash, &info);
-	tr_Trace(2, 1, "tr_MemPoolRemove RTEline %d memptr 0x%x memindex %d with free %d\n", tr_sourceLine, s, i ? info.index : -1, withFree);
+	tr_Trace(2, 1, "tr_MemPoolRemove RTEline %d memptr %p memindex %d with free %d\n", tr_sourceLine, s, i ? info.index : -1, withFree);
 	if (i > 0) {
 		i = info.index;
 		if (withFree) {
@@ -571,7 +580,7 @@ char *tr_MemPoolPass (char *s)
 #endif
 	}
 
-	tr_Trace(2, 1, "tr_MemPoolPass RTEline %d memptr 0x%x\n", tr_sourceLine, s);
+	tr_Trace(2, 1, "tr_MemPoolPass RTEline %d memptr %p\n", tr_sourceLine, s);
 	MemIdx_SetInfo(s, memptr, &info);
 	tr_SearchTableAdd(memtabhash, &info);
 	memtab[memptr++] = s;
@@ -597,8 +606,8 @@ void tr_GarbageCollection (void)
 	for (i = 0; i < memptr; ++i) {
 
 		if (memtab[i]) {
-			tr_Trace(2, 1, "tr_GarbageCollection RTEline %d memptr 0x%x\n", tr_sourceLine, memtab[i]);
-			free (memtab[i]);
+			tr_Trace(2, 1, "tr_GarbageCollection RTEline %d memptr %p\n", tr_sourceLine, memtab[i]);
+			tr_free (memtab[i]);
 			memtab[i] = NULL;
 		}
 	}
@@ -652,8 +661,8 @@ void tr_CollectFunctionGarbage (int from)
 		if (memtab[i]) {
 			info.ptr = memtab[i];
 			tr_SearchTableRemove(memtabhash, &info);
-			tr_Trace(2, 1, "tr_CollectFunctionGarbage RTEline %d memptr 0x%x\n", tr_sourceLine, memtab[i]);
-			free (memtab[i]);
+			tr_Trace(2, 1, "tr_CollectFunctionGarbage RTEline %d memptr %p\n", tr_sourceLine, memtab[i]);
+			tr_free (memtab[i]);
 			memtab[i] = NULL;
 		} else {
 			f = 1;	/* why ? */
@@ -696,16 +705,15 @@ char * tr_ShowSep (unsigned char sepchar)
 ============================================================================*/
 void tr_Assign (char **var, char *value)
 {
-	MemIdxNode info;
-
 	if (*var != value) {
-		tr_Trace(2, 1, "tr_Assign 0x%x %s 0x%x %s\n", *var, *var ? *var : "", value, value ? value : "null");
+		tr_Trace(2, 1, "tr_Assign %p '%s' %p '%s'\n", *var, *var ? *var : "", value, value ? value : "null");
 		if (*var && !(*var == TR_EMPTY)) {
 #if defined(DEBUG) && MEM_DEBUG==1
 			TDXMemDebug_tr_free(*var,__LINE__,__FILE__);
 #else
 			tr_free (*var);
 #endif
+			*var = NULL;
 		}
 
 		if (value == tr_LastMemPoolValue()) {
@@ -721,7 +729,7 @@ void tr_Assign (char **var, char *value)
 	}
 #if defined(DEBUG) && MEM_DEBUG==1
 	else
-		tr_Trace(2, 1, "tr_Assign 0x%x %s 0x%x %s\n", *var, *var ? *var : "null", value, value ? value : "null");
+		tr_Trace(2, 1, "tr_Assign %p '%s' %p '%s'\n", *var, *var ? *var : "null", value, value ? value : "null");
 #endif
 }
 
@@ -734,13 +742,14 @@ void tr_AssignEmpty (char **var)
 
 	*var = TR_EMPTY;
 
-	tr_Trace(2, 1, "tr_AssignEmpty RTEline %d memptr &0x%x 0x%x\n", tr_sourceLine, var, var ? *var : 0);
+	tr_Trace(2, 1, "tr_AssignEmpty RTEline %d memptr &%p %p\n", tr_sourceLine, var, var ? *var : 0);
 	if (old && !(old == TR_EMPTY)) {
 #if defined(DEBUG) && MEM_DEBUG==1
 		TDXMemDebug_tr_free(old,__LINE__,__FILE__);
 #else
 		tr_free (old);
 #endif
+		old = NULL;
 	}
 }
 
@@ -751,7 +760,6 @@ void tr_AssignEmpty (char **var)
 void tr_ElemAssign (char **var, char *value, int content)
 {
 	char *p;
-	MemIdxNode info;
 
 	switch (content) {
 	case 'N':
@@ -774,7 +782,7 @@ void tr_ElemAssign (char **var, char *value, int content)
 	default:
 		if (value == tr_LastMemPoolValue()) {
 #if defined(DEBUG) && MEM_DEBUG==1
-			tr_Trace(1, 1, "tr_ElemAssign RTEline %d memptr %d 0x%x, %s\n", tr_sourceLine, tr_GetFunctionMemPtr(), 
+			tr_Trace(1, 1, "tr_ElemAssign RTEline %d memptr %d %p, %s\n", tr_sourceLine, tr_GetFunctionMemPtr(), 
 					tr_LastMemPoolValue(), value ? value : "null");
 #endif
 			*var = value;
@@ -815,7 +823,6 @@ void tr_FreeElemList (char **list, int count)
 	}
 }
 
-
 char * tr_strdup(char *s)
 {
 #if defined(DEBUG) && MEM_DEBUG==1
@@ -837,20 +844,15 @@ char * tr_strdup(char *s)
 #if defined(DEBUG) && MEM_DEBUG==1
 char *TDXMemDebug_tr_strdup(char *s, int line_strdup, char *file_strdup)
 {
-	int len;
-	void *p;
-
 	if (s == TR_EMPTY){
 		return TR_EMPTY;
 	}
-	len = strlen(s) + 1;
-	p = TDXMemDebug_malloc(len, line_strdup, file_strdup, "tr_strdup");
-	if (tracelevel >= 1){
-		fprintf(stderr,"%30s L%d (TDXMemDebug_tr_strdup L%d) 0x%x\n",file_strdup,line_strdup, __LINE__, p);
-	}
-	memcpy(p, s, len);
+	char *result = strdup(s);
 
-	return (p);
+	if (tracelevel >= 1){
+		fprintf(stderr,"%30s L%d (TDXMemDebug_tr_strdup L%d) %p -> %p\n",file_strdup,line_strdup, __LINE__, s, result);
+	}
+	return result;
 }
 #endif
 
@@ -879,20 +881,14 @@ char * tr_strndup(char *s, int len)
 #if defined(DEBUG) && MEM_DEBUG==1
 char *TDXMemDebug_tr_strndup(char *s, int len, int line_strdup, char *file_strdup)
 {
-	void *p;
-
 	if (s == TR_EMPTY){
 		return TR_EMPTY;
 	}
-	
-	p = TDXMemDebug_tr_zalloc(len+1, line_strdup, file_strdup);
+	char *result = strndup(s, len);
 	if (tracelevel >= 1){
-		fprintf(stderr,"%30s L%d (TDXMemDebug_tr_strndup L%d) 0x%x\n",file_strdup,line_strdup, __LINE__, p);
+		fprintf(stderr,"%30s L%d (TDXMemDebug_tr_strndup L%d) %p -> %p\n",file_strdup,line_strdup, __LINE__, s, result);
 	}
-	
-	memcpy(p, s, len);
-
-	return (p);
+	return result;
 }
 #endif
 
@@ -935,9 +931,10 @@ void * tr_malloc(int size)
 #if defined(DEBUG) && MEM_DEBUG==1
 void *TDXMemDebug_tr_malloc(int size, int line_malloc, char *file_malloc)
 {
+	void *result = malloc(size);
 	if (tracelevel >= 1)
-		fprintf(stderr,"%30s L%d (TDXMemDebug_tr_malloc L%d size %d) RTE %d\n", file_malloc, line_malloc, __LINE__, size, tr_sourceLine);
-	return TDXMemDebug_malloc(size, line_malloc, file_malloc, "tr_malloc");
+		fprintf(stderr,"%30s L%d (TDXMemDebug_tr_malloc L%d size %d) RTE %d %p\n", file_malloc, line_malloc, __LINE__, size, tr_sourceLine, result);
+	return result;
 }
 #endif
 
@@ -946,7 +943,7 @@ void * tr_zalloc(int size)
 #if defined(DEBUG) && MEM_DEBUG==1
 	return TDXMemDebug_tr_zalloc(size, __LINE__, __FILE__);
 #else
-	void *result = (void *) calloc(1, size);
+	void *result = calloc(1, size);
 	if (errno == ENOMEM) {
 		tr_OutOfMemory();  /* log error and exit */
 	}
@@ -957,9 +954,13 @@ void * tr_zalloc(int size)
 #if defined(DEBUG) && MEM_DEBUG==1
 void *TDXMemDebug_tr_zalloc(int size, int line_malloc, char *file_malloc)
 {
+	void *result = calloc(1, size);
+    if (errno == ENOMEM) {
+        tr_OutOfMemory();  /* log error and exit */
+    }
 	if (tracelevel >= 1)
-		fprintf(stderr,"%30s L%d (TDXMemDebug_tr_zalloc L%d size %d) RTE %d\n", file_malloc, line_malloc, __LINE__, size, tr_sourceLine);
-	return TDXMemDebug_calloc(1, size, line_malloc, file_malloc);
+		fprintf(stderr,"%30s L%d (TDXMemDebug_tr_zalloc L%d size %d) RTE %d %p\n", file_malloc, line_malloc, __LINE__, size, tr_sourceLine, result);
+	return result;
 }
 #endif
 
@@ -979,9 +980,10 @@ void * tr_calloc(int n, int size)
 #if defined(DEBUG) && MEM_DEBUG==1
 void *TDXMemDebug_tr_calloc(int n, int size, int line_malloc, char *file_malloc)
 {
+	void *result = calloc(n, size);
 	if (tracelevel >= 1)
-		fprintf(stderr,"%30s L%d (TDXMemDebug_tr_calloc L%d size %d) RTE %d\n", file_malloc, line_malloc, __LINE__, n*size, tr_sourceLine);
-	return TDXMemDebug_calloc(n, size, line_malloc, file_malloc);
+		fprintf(stderr,"%30s L%d (TDXMemDebug_tr_calloc L%d size %d) RTE %d %p\n", file_malloc, line_malloc, __LINE__, n*size, tr_sourceLine, result);
+	return result;
 }
 #endif
 
@@ -1002,10 +1004,17 @@ void * tr_realloc(void *p, int size)
 #if defined(DEBUG) && MEM_DEBUG==1
 void *TDXMemDebug_tr_realloc(void *p, int size, int line_realloc, char *file_realloc)
 {
-	if (tracelevel >= 1)
-		fprintf(stderr,"%30s L%d (TDXMemDebug_tr_realloc L%d size %d) RTE %d\n", file_realloc, line_realloc, __LINE__, size, tr_sourceLine);
-	return p ? (void *) TDXMemDebug_realloc(p, size, line_realloc, file_realloc) : 
-	TDXMemDebug_malloc(size, line_realloc, file_realloc, "tr_realloc");
+	void *result = NULL;
+	if (p != NULL) {
+		result = realloc(p, size);  
+		if (tracelevel >= 1)
+			fprintf(stderr,"%30s L%d (TDXMemDebug_tr_realloc (realloc) L%d size %d) RTE %d %p\n", file_realloc, line_realloc, __LINE__, size, tr_sourceLine, result);
+	} else {
+		result = malloc(size);
+		if (tracelevel >= 1)
+			fprintf(stderr,"%30s L%d (TDXMemDebug_tr_realloc (malloc) L%d size %d) RTE %d %p\n", file_realloc, line_realloc, __LINE__, size, tr_sourceLine, result);
+	}
+	return result;
 }
 #endif
 
@@ -1017,7 +1026,7 @@ void tr_free(void *p)
 #if defined(DEBUG) && MEM_DEBUG==1
 	TDXMemDebug_tr_free(p, __LINE__, __FILE__);
 #else /* not DEBUG */
-	tr_Trace(1, 1, "tr_free RTE %d 0x%x\n", tr_sourceLine, p);
+	tr_Trace(1, 1, "tr_free RTE %d %p\n", tr_sourceLine, p);
 	if (!p){
 		return;
 	}
@@ -1032,7 +1041,7 @@ void TDXMemDebug_tr_free(void *p, int line_free, char *file_free)
 		return;
 	}
 	if (tracelevel >= 1) {
-		fprintf(stderr,"%30s L%d (TDXMemDebug_tr_free L%d) RTE %d\n", file_free, line_free, __LINE__, tr_sourceLine);
+		fprintf(stderr,"%30s L%d (TDXMemDebug_tr_free L%d) RTE %d %p\n", file_free, line_free, __LINE__, tr_sourceLine, p);
 	}
 	free(p);
 }
@@ -1110,3 +1119,6 @@ void tr_berzerk(char *fmt, ...)
 	abort();
 }
 
+
+#undef DEBUG
+#undef MEM_DEBUG

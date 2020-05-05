@@ -8,7 +8,7 @@
 	Copyright (c) 1994 Telecom Finland/EDI Operations
 ========================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_logsyslocal.c 55071 2019-07-29 12:52:29Z cdemory $")
+MODULE("@(#)TradeXpress $Id: tr_logsyslocal.c 55477 2020-05-04 12:53:34Z jlebiannic $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 28.09.94/JN	Created, tr_logsys.c used as a template.
@@ -44,6 +44,7 @@ MODULE("@(#)TradeXpress $Id: tr_logsyslocal.c 55071 2019-07-29 12:52:29Z cdemory
   4.04 07.09.16/SCH(CG) TX-2896 : change field= filter shape by field<0 or 'field<>' by field>0
   4.05 06.06.19/CDE TX-3136 : use ascii char 1 instead of number "0" in field comparaison to retrieve values starting by "("
   4.06 10.07.2019/ORE(SF) TX-3123: UNICODE adaptation
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 
 ========================================================================*/
 
@@ -85,13 +86,13 @@ static void setaparm(char *path, char *name, char *value);
 	NULL terminates list
 ========================================================================*/
 
-int tr_localFindFirst(LogSysHandle *handle, int order, LogFieldHandle *key, char *path, ...)
+int tr_lsFindFirst(LogSysHandle *handle, int order, LogFieldHandle *key, char *path, ...)
 {
 	int result;
 	va_list		ap;
 	va_start(ap, path);
 
-	result = tr_localVFindFirst(handle, order, key, path, ap);
+	result = tr_lsVFindFirst(handle, order, key, path, ap);
 
 	va_end(ap);
 
@@ -102,7 +103,7 @@ int tr_localFindFirst(LogSysHandle *handle, int order, LogFieldHandle *key, char
  * A va_list version of the tr_lsFindFirst. The one above is just a wrapper
  * for this. (KP)
  */
-int tr_localVFindFirst( LogSysHandle *handle, int order, LogFieldHandle *key, char *path, va_list ap)
+int tr_lsVFindFirst( LogSysHandle *handle, int order, LogFieldHandle *key, char *path, va_list ap)
 {
 	LogFieldHandle	*field;
 	int		cmp;
@@ -117,9 +118,9 @@ int tr_localVFindFirst( LogSysHandle *handle, int order, LogFieldHandle *key, ch
 	char *valp, valbuf[4096];
 
 	/* Release anything hanging from the handle. */
-	tr_localFreeEntryList(handle);
+	tr_lsFreeEntryList(handle);
 	/* Make sure the system is open. label created ... */
-	tr_localOpen(handle, path);
+	tr_lsOpen(handle, path);
 
 	/* Reset filter and insert new values to it. */
 	logfilter_clear(handle->filter);
@@ -230,7 +231,7 @@ int tr_localVFindFirst( LogSysHandle *handle, int order, LogFieldHandle *key, ch
 	return (1);	/* ok */
 }
 
-int tr_localFindNext(LogSysHandle *handle)
+int tr_lsFindNext(LogSysHandle *handle)
 {
 	/* Free previous active entry. */
 	if (handle->logEntry){
@@ -286,7 +287,7 @@ int tr_localFindNext(LogSysHandle *handle)
 /* When listIndex is incremented, list entries should be
  * removed from the list at the same time (we dont look back
  * in the list). */
-void tr_localFreeEntryList(LogSysHandle *handle)
+void tr_lsFreeEntryList(LogSysHandle *handle)
 {
 	if (handle->logEntry){
 		logentry_free(handle->logEntry);
@@ -327,7 +328,7 @@ void tr_localFreeEntryList(LogSysHandle *handle)
   Time manipulation is not in balance...
 ============================================================================*/
 
-char *tr_localGetTextVal(LogSysHandle *sh, LogFieldHandle *fh)
+char *tr_lsGetTextVal(LogSysHandle *sh, LogFieldHandle *fh)
 {
 	if (!sh->logEntry) {
 		tr_Log(TR_WARN_LOGENTRY_NOT_SET);
@@ -339,7 +340,7 @@ char *tr_localGetTextVal(LogSysHandle *sh, LogFieldHandle *fh)
 	return tr_MemPool(logentry_gettextbyfield(sh->logEntry, fh->logField));
 }
 
-double tr_localGetNumVal(LogSysHandle *sh, LogFieldHandle *fh)
+double tr_lsGetNumVal(LogSysHandle *sh, LogFieldHandle *fh)
 {
 	LogField *field = fh->logField;
 
@@ -357,7 +358,7 @@ double tr_localGetNumVal(LogSysHandle *sh, LogFieldHandle *fh)
 	return (logentry_getnumberbyfield(sh->logEntry, field));
 }
 
-time_t tr_localGetTimeVal(LogSysHandle *sh, LogFieldHandle *fh)
+time_t tr_lsGetTimeVal(LogSysHandle *sh, LogFieldHandle *fh)
 {
 	if (!sh->logEntry) {
 		tr_Log(TR_WARN_LOGENTRY_NOT_SET);
@@ -369,7 +370,7 @@ time_t tr_localGetTimeVal(LogSysHandle *sh, LogFieldHandle *fh)
 	return (logentry_gettimebyfield(sh->logEntry, fh->logField));
 }
 
-int tr_localSetTextVal(LogSysHandle *sh, LogFieldHandle *fh, char *value)
+int tr_lsSetTextVal(LogSysHandle *sh, LogFieldHandle *fh, char *value)
 {
 	if (!sh->logEntry) {
 		tr_Log(TR_WARN_LOGENTRY_NOT_SET);
@@ -390,7 +391,7 @@ int tr_localSetTextVal(LogSysHandle *sh, LogFieldHandle *fh, char *value)
 	return (!logentry_write(sh->logEntry));
 }
 
-int tr_localSetNumVal(LogSysHandle *sh, LogFieldHandle *fh, double value)
+int tr_lsSetNumVal(LogSysHandle *sh, LogFieldHandle *fh, double value)
 {
 	LogField *field = fh->logField;
 
@@ -415,7 +416,7 @@ int tr_localSetNumVal(LogSysHandle *sh, LogFieldHandle *fh, double value)
 	return (!logentry_write(sh->logEntry));
 }
 
-int tr_localSetTimeVal(LogSysHandle *sh, LogFieldHandle *fh, char *value)
+int tr_lsSetTimeVal(LogSysHandle *sh, LogFieldHandle *fh, char *value)
 {
 	time_t tims[2];
 
@@ -440,7 +441,7 @@ int tr_localSetTimeVal(LogSysHandle *sh, LogFieldHandle *fh, char *value)
   Copy one entry into another.
 ============================================================================*/
 
-int tr_localCopyEntry (LogSysHandle *to, LogSysHandle *from)
+int tr_lsCopyEntry (LogSysHandle *to, LogSysHandle *from)
 {
 	int rc;
 
@@ -475,24 +476,26 @@ int tr_localCopyEntry (LogSysHandle *to, LogSysHandle *from)
   Create a new entry in system.
 ============================================================================*/
 
-int tr_localCreate (LogSysHandle *handle, char *path)
+int tr_lsCreate (LogSysHandle *handle, char *path)
 {
 	LogEntry *entry;
-
 	/*
 	 * Free old junk and make sure the system is open.
 	 */
-	tr_localFreeEntryList(handle);
-	tr_localOpen(handle, path);
+	tr_lsFreeEntryList(handle);
+	tr_lsOpen(handle, path);
 
 	entry = logentry_new(handle->logsys);
 	if (entry == NULL){
 		tr_Fatal(TR_WARN_CANNOT_CREATE_NEW, handle->path);
 	} else {
-		/*
-		 * 3.13/KP : Remove all subfiles, just-in-case.
-		 */
-		logentry_removefiles(entry, NULL);
+		 if (tr_SQLiteMode() == 0)
+		 { /* TX-3199: remove existing extensions only in old legacy mode */
+			/*
+			* 3.13/KP : Remove all subfiles, just-in-case.
+			*/
+			logentry_removefiles(entry, NULL);
+		 } 
 	}
 
 	handle->logEntry  = entry;
@@ -503,7 +506,7 @@ int tr_localCreate (LogSysHandle *handle, char *path)
   Remove the entry and everything related to it.
 ============================================================================*/
 
-int tr_localRemove(LogSysHandle *handle)
+int tr_lsRemove(LogSysHandle *handle)
 {
 	int ok = 1;
 	LogEntry *entry = handle->logEntry;
@@ -539,7 +542,7 @@ int tr_localRemove(LogSysHandle *handle)
   Next GC will destroy it.
 ============================================================================*/
 
-char* tr_localPath (LogSysHandle *handle, char *extension)
+char* tr_lsPath (LogSysHandle *handle, char *extension)
 {
 	extern int LOGSYS_EXT_IS_DIR;
 	char tmp[1024];
@@ -567,7 +570,7 @@ char* tr_localPath (LogSysHandle *handle, char *extension)
   if someone would be interested on that...
 ============================================================================*/
 
-int tr_localCompileFields(LogSysHandle *handle)
+int tr_lsCompileFields(LogSysHandle *handle)
 {
 	LogFieldHandle *lfh;
 	LogField *field;
@@ -605,7 +608,7 @@ int tr_localCompileFields(LogSysHandle *handle)
   Errors are fatal.
 ============================================================================*/
 
-int tr_localOpen(LogSysHandle *handle, char *path)
+int tr_lsOpen(LogSysHandle *handle, char *path)
 {
 	char *pathcopy;
 	int mode = 0;	/* default read/write */
@@ -633,7 +636,7 @@ int tr_localOpen(LogSysHandle *handle, char *path)
 			tr_Fatal(TR_FATAL_LOGSYS_OPEN_FAILED, handle->path);
 		}
 		
-		tr_localCompileFields(handle);
+		tr_lsCompileFields(handle);
 
 		/* manual transaction is ... manual 
 		 * so by default OFF */
@@ -642,7 +645,7 @@ int tr_localOpen(LogSysHandle *handle, char *path)
 		/* IF   we are in autoflush mode OFF 
 		 * AND  we are in autocommit mode ON
 		 * THEN try to open/close a transaction */
-		tr_localTryOpenCloseTransaction(handle);
+		tr_lsTryOpenCloseTransaction(handle);
 	}
     return 0;
 }
@@ -651,7 +654,7 @@ int tr_localOpen(LogSysHandle *handle, char *path)
   Flush out an entry.
 ============================================================================*/
 
-int tr_localWriteEntry(LogSysHandle *handle)
+int tr_lsWriteEntry(LogSysHandle *handle)
 {
 	int success;
 	if (!handle->logEntry) {
@@ -663,12 +666,12 @@ int tr_localWriteEntry(LogSysHandle *handle)
 	/* IF   we are in autoflush mode OFF 
 	 * AND  we are in autocommit mode ON
 	 * THEN try to open/close a transaction */
-	tr_localTryOpenCloseTransaction(handle);
+	tr_lsTryOpenCloseTransaction(handle);
 
 	return success;
 }
 
-void tr_localTryOpenCloseTransaction(LogSysHandle *handle)
+void tr_lsTryOpenCloseTransaction(LogSysHandle *handle)
 {
 	/* only in autoflush mode OFF */
 	if (handle->autoFlush == 1) {
@@ -681,12 +684,12 @@ void tr_localTryOpenCloseTransaction(LogSysHandle *handle)
 	}
 	
 	/* close the pending SQL transaction if exists */
-	tr_localCloseTransaction(handle);
+	tr_lsCloseTransaction(handle);
 	/* ... and (re)open a new one */
-	tr_localOpenTransaction(handle);
+	tr_lsOpenTransaction(handle);
 }
 
-void tr_localOpenTransaction(LogSysHandle *handle)
+void tr_lsOpenTransaction(LogSysHandle *handle)
 {
 	/* open if closed/non opened */
 	if (handle->transactionState == 0) 
@@ -696,7 +699,7 @@ void tr_localOpenTransaction(LogSysHandle *handle)
 	}
 }
 
-void tr_localCloseTransaction(LogSysHandle *handle)
+void tr_lsCloseTransaction(LogSysHandle *handle)
 {
 	/* close if opened */
 	if (handle->transactionState == 1)
@@ -706,7 +709,7 @@ void tr_localCloseTransaction(LogSysHandle *handle)
 	}
 }
 
-void tr_localRollbackTransaction(LogSysHandle *handle)
+void tr_lsRollbackTransaction(LogSysHandle *handle)
 {
 	/* attempt rollback on an opened transac 
 	 * rollback means also closing */
@@ -717,7 +720,7 @@ void tr_localRollbackTransaction(LogSysHandle *handle)
 	}
 }
 
-void tr_localOpenManualTransaction(LogSysHandle *handle)
+void tr_lsOpenManualTransaction(LogSysHandle *handle)
 {
 	/* manual transaction not allowed in autocommit mode ON */
 	if (handle->autoCommit == 1) {
@@ -726,12 +729,12 @@ void tr_localOpenManualTransaction(LogSysHandle *handle)
 	
 	if (handle->transactionMode == 0)
 	{
-		tr_localOpenTransaction(handle);
+		tr_lsOpenTransaction(handle);
 		handle->transactionMode = 1;
 	}
 }
 
-void tr_localCloseManualTransaction(LogSysHandle *handle)
+void tr_lsCloseManualTransaction(LogSysHandle *handle)
 {
 	/* manual transaction not allowed in autocommit mode ON */
 	if (handle->autoCommit == 1) {
@@ -740,12 +743,12 @@ void tr_localCloseManualTransaction(LogSysHandle *handle)
 	
 	if (handle->transactionMode == 1)
 	{
-		tr_localCloseTransaction(handle);
+		tr_lsCloseTransaction(handle);
 		handle->transactionMode = 0;
 	}
 }
 
-void tr_localRollbackManualTransaction(LogSysHandle *handle)
+void tr_lsRollbackManualTransaction(LogSysHandle *handle)
 {
 	/* manual transaction not allowed in autocommit mode ON */
 	if (handle->autoCommit == 1) {
@@ -754,7 +757,7 @@ void tr_localRollbackManualTransaction(LogSysHandle *handle)
 	
 	if (handle->transactionMode == 1)
 	{
-		tr_localRollbackTransaction(handle);
+		tr_lsRollbackTransaction(handle);
 		handle->transactionMode = 0;
 	}
 }
@@ -764,12 +767,12 @@ void tr_localRollbackManualTransaction(LogSysHandle *handle)
   Current active and entrylist are released.
 ========================================================================*/
 
-int tr_localReadEntry(LogSysHandle *handle, double d_index)
+int tr_lsReadEntry(LogSysHandle *handle, double d_index)
 {
 	int idx = d_index;
 
-	tr_localFreeEntryList(handle);
-	tr_localOpen(handle, handle->path);
+	tr_lsFreeEntryList(handle);
+	tr_lsOpen(handle, handle->path);
 
 	handle->logEntry = logentry_readindex(handle->logsys, idx);
 
@@ -781,16 +784,16 @@ int tr_localReadEntry(LogSysHandle *handle, double d_index)
    ...
 ========================================================================*/
 
-int tr_localIsValidEntry(LogSysHandle *handle)
+int tr_lsValidEntry(LogSysHandle *handle)
 {
 	return (handle && handle->logEntry);
 }
 
 /*
- * tr_localFetchParms(LogSysHandle *, char *ext)
+ * tr_lsFetchParms(LogSysHandle *, char *ext)
  */
 
-char **tr_localFetchParms(LogSysHandle *ls, char *ext)
+char **tr_lsFetchParms(LogSysHandle *ls, char *ext)
 {
 	char **ta;
 	char *path, buf[1024];
@@ -838,7 +841,7 @@ char **tr_localFetchParms(LogSysHandle *ls, char *ext)
 	return (ta);
 }
 
-int tr_localSetTextParm(LogSysHandle *pLog, 
+int tr_lsSetTextParm(LogSysHandle *pLog, 
                 char *tExt,
                 char *tName,
                 char *tValue)
@@ -850,7 +853,7 @@ int tr_localSetTextParm(LogSysHandle *pLog,
 /*
  * XXX This assumes that name/value separator is '='
  */
-char *tr_localGetTextParm( LogSysHandle *pLog,
+char *tr_lsGetTextParm( LogSysHandle *pLog,
                char     *tExt,
                char     *tName )
 {
@@ -893,7 +896,7 @@ char *tr_localGetTextParm( LogSysHandle *pLog,
 	}
 }
 
-void tr_localClearParms(LogSysHandle *pLog, char *tExt)
+void tr_lsClearParms(LogSysHandle *pLog, char *tExt)
 {
 	char *path;
 
@@ -905,7 +908,7 @@ void tr_localClearParms(LogSysHandle *pLog, char *tExt)
  * This is always a destructive write, i.e. all parameters are saved
  * and all previous contents are lost.
  */
-int tr_localSaveParms(LogSysHandle *pLog, char *tExt, char **ta)
+int tr_lsSaveParms(LogSysHandle *pLog, char *tExt, char **ta)
 {
 	FILE *fp;
 	char *cp, *path, **vp;
@@ -951,7 +954,7 @@ again:
  * close()'s. Naturally this does not suit us, as getvalue()/setvalue()
  * pair performs its own open()/close()'s.
  */
-int tr_localTryGetUniq(
+int tr_lsTryGetUniq(
     LogSysHandle *pLog,
     char *tExt,
     char *tCounter,
@@ -967,7 +970,7 @@ int tr_localTryGetUniq(
 	DWORD nm;
 	HANDLE h = INVALID_HANDLE_VALUE;
 #else
-	int n, fd = -1;
+	int fd = -1;
 #endif
 
 	*Counter_result = 0;
@@ -1086,9 +1089,7 @@ out:
 
 static void setaparm(char *path, char *name, char *value)
 {
-	int namelen = strlen(name);
 	FILE *fp;
-	char *cp;
 	char *buf;
 	int bufsize;
 	int fd;

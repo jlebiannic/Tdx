@@ -8,7 +8,7 @@
 	Copyright (c) 1992 Telecom Finland/EDI Operations
 ============================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_loaddef.c 55415 2020-03-04 18:11:43Z jlebiannic $")
+MODULE("@(#)TradeXpress $Id: tr_loaddef.c 55433 2020-03-16 12:37:08Z sodifrance $")
 /*LIBRARY(libruntime_version)
 */
 /*============================================================================
@@ -29,6 +29,7 @@ MODULE("@(#)TradeXpress $Id: tr_loaddef.c 55415 2020-03-04 18:11:43Z jlebiannic 
   4.00 20.12.06/LM  Don't clean trailing spaces option
   4.01 26.09.13/DBT(CG) TX-2437 : binary httpreceive.cgi.exe falls segmentation violation
   TX-3123 - 28.05.2019 - Olivier REMAUD - UNICODE adaptation
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 
 ============================================================================*/
 
@@ -81,36 +82,36 @@ struct defval {
 	int  type;
 	void *value;
 } TCLdefaults[] = {
-	"INVALID_CONTENT",			RELAX_BIT,	(void *)RELAX_CHARCHECK,
-	"MISSING_ELEMENTS",			RELAX_BIT,	(void *)RELAX_MISSINGELEMENTS,
-	"MISSING_COMPONENTS",		RELAX_BIT,	(void *)RELAX_MISSINGCOMPONENTS,
-	"EXCESS_COMPONENTS",		RELAX_BIT,	(void *)RELAX_EXCESSCOMPONENTS,
-	"EXCESS_ELEMENTS",			RELAX_BIT,	(void *)RELAX_EXCESSELEMENTS,
-	"TOO_LONG_ELEMENTS",		RELAX_BIT,	(void *)RELAX_TOOLONGELEMENTS,
-	"TOO_SHORT_ELEMENTS",		RELAX_BIT,	(void *)RELAX_TOOSHORTELEMENTS,
-	"MISSING_SEGMENTS",			RELAX_BIT,	(void *)RELAX_MISSINGSEGMENTS,
-	"MISSING_GROUPS",			RELAX_BIT,	(void *)RELAX_MISSINGGROUPS,
-	"TOO_MANY_SEGMENTS",		RELAX_BIT,	(void *)RELAX_TOOMANYSEGMENTS,
-	"TOO_MANY_GROUPS",			RELAX_BIT,	(void *)RELAX_TOOMANYGROUPS,
-	"GARBAGE_OUTSIDE",			RELAX_BIT,	(void *)RELAX_GARBAGEOUTSIDE,
-	"GARBAGE_INSIDE",			RELAX_BIT,	(void *)RELAX_GARBAGEINSIDE,
-	"EMPTY_SEGMENTS",			RELAX_BIT,	(void *)RELAX_EMPTYSEGMENTS,
-	"FIXED_NUMS",				RELAX_BIT,	(void *)RELAX_FIXEDNUMS,
-	"XERCES_ERROR",				RELAX_BIT,	(void *)RELAX_XERCES,
-	"INHOUSE_DECIMAL_SEP",		TEXT_VAR,	(void *)&tr_ADS,
-	"MESSAGE_DECIMAL_SEP",		TEXT_VAR,	(void *)&tr_MDS,
-	"LOGGING_LEVEL",			DOUBLE_VAR,	(void *)&tr_errorLevel,
-	"ARRAY_INDEX_WIDTH",		INT_VAR,	(void *)&tr_bufIndexWidth,
-	"CODE_CONVERSION_BUFFER",	INT_VAR,	(void *)&tr_codeConversionSize,
-	"EOF_STRING",				TEXT_VAR,	(void *)&TR_EOF,
-	"PACK_COMPONENTS",			INT_VAR,	(void *)&tr_doPackComponents,
-	"PACK_ELEMENTS",			INT_VAR,	(void *)&tr_doPackElements,
-	"USE_LOCAL_LOGSYS",			INT_VAR,	(void *)&tr_useLocalLogsys,
-	"USE_SQLITE_LOGSYS",		INT_VAR,	(void *)&tr_useSQLiteLogsys,
-	"CLEAN_TRAILING_SPACES",	INT_VAR,	(void *)&tr_cleanTrailingSpaces,
-	"MULTI_SEPARATOR",			MULTI_SEP,	(void *)&tr_multisep,
-	"USE_DAO",			        INT_VAR,	(void *)&tr_useDao,
-	NULL,
+	{ "INVALID_CONTENT",		RELAX_BIT,	(void *)RELAX_CHARCHECK },
+	{ "MISSING_ELEMENTS",		RELAX_BIT,	(void *)RELAX_MISSINGELEMENTS },
+	{ "MISSING_COMPONENTS",		RELAX_BIT,	(void *)RELAX_MISSINGCOMPONENTS },
+	{ "EXCESS_COMPONENTS",		RELAX_BIT,	(void *)RELAX_EXCESSCOMPONENTS },
+	{ "EXCESS_ELEMENTS",		RELAX_BIT,	(void *)RELAX_EXCESSELEMENTS },
+	{ "TOO_LONG_ELEMENTS",		RELAX_BIT,	(void *)RELAX_TOOLONGELEMENTS },
+	{ "TOO_SHORT_ELEMENTS",		RELAX_BIT,	(void *)RELAX_TOOSHORTELEMENTS },
+	{ "MISSING_SEGMENTS",		RELAX_BIT,	(void *)RELAX_MISSINGSEGMENTS },
+	{ "MISSING_GROUPS",			RELAX_BIT,	(void *)RELAX_MISSINGGROUPS },
+	{ "TOO_MANY_SEGMENTS",		RELAX_BIT,	(void *)RELAX_TOOMANYSEGMENTS },
+	{ "TOO_MANY_GROUPS",		RELAX_BIT,	(void *)RELAX_TOOMANYGROUPS },
+	{ "GARBAGE_OUTSIDE",		RELAX_BIT,	(void *)RELAX_GARBAGEOUTSIDE },
+	{ "GARBAGE_INSIDE",			RELAX_BIT,	(void *)RELAX_GARBAGEINSIDE },
+	{ "EMPTY_SEGMENTS",			RELAX_BIT,	(void *)RELAX_EMPTYSEGMENTS },
+	{ "FIXED_NUMS",				RELAX_BIT,	(void *)RELAX_FIXEDNUMS },
+	{ "XERCES_ERROR",			RELAX_BIT,	(void *)RELAX_XERCES },
+	{ "INHOUSE_DECIMAL_SEP",	TEXT_VAR,	(void *)&tr_ADS },
+	{ "MESSAGE_DECIMAL_SEP",	TEXT_VAR,	(void *)&tr_MDS },
+	{ "LOGGING_LEVEL",			DOUBLE_VAR,	(void *)&tr_errorLevel },
+	{ "ARRAY_INDEX_WIDTH",		INT_VAR,	(void *)&tr_bufIndexWidth },
+	{ "CODE_CONVERSION_BUFFER",	INT_VAR,	(void *)&tr_codeConversionSize },
+	{ "EOF_STRING",				TEXT_VAR,	(void *)&TR_EOF },
+	{ "PACK_COMPONENTS",		INT_VAR,	(void *)&tr_doPackComponents },
+	{ "PACK_ELEMENTS",			INT_VAR,	(void *)&tr_doPackElements },
+	{ "USE_LOCAL_LOGSYS",		INT_VAR,	(void *)&tr_useLocalLogsys },
+	{ "USE_SQLITE_LOGSYS",		INT_VAR,	(void *)&tr_useSQLiteLogsys },
+	{ "CLEAN_TRAILING_SPACES",	INT_VAR,	(void *)&tr_cleanTrailingSpaces },
+	{ "MULTI_SEPARATOR",		MULTI_SEP,	(void *)&tr_multisep },
+	{ "USE_DAO",				INT_VAR,	(void *)&tr_useDao },
+	{ NULL,						0,			NULL }
 };
 
 /*======================================================================

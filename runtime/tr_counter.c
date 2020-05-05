@@ -1,5 +1,5 @@
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_counter.c 55062 2019-07-22 12:35:02Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: tr_counter.c 55433 2020-03-16 12:37:08Z sodifrance $")
 /*==============================================================================
 	E D I S E R V E R   T R A N S L A T O R
 
@@ -35,6 +35,7 @@ MODULE("@(#)TradeXpress $Id: tr_counter.c 55062 2019-07-22 12:35:02Z sodifrance 
 	28.03.17/CD TX-2960 : rewrite the counters for eftp bad connections.
 	                 add possibility to set the directory for the counters
   TX-3123 - 19.07.2019 - Olivier REMAUD - UNICODE adaptation
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 ==============================================================================*/
 
 /*======================================================================
@@ -164,7 +165,6 @@ int tr_setcounter_with_dir(char *cptdir, char *name, double value)
 
 	FILE *fp;
 	char buf[BUFSIZ];
-	char *tmp;
 	DIR  *dirp;
 	struct dirent *dp;
 	int  bufLen;

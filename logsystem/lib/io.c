@@ -10,7 +10,7 @@
 	Reading and writing logsystem stuff.
 ========================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: io.c 55415 2020-03-04 18:11:43Z jlebiannic $")
+MODULE("@(#)TradeXpress $Id: io.c 55444 2020-03-30 08:18:27Z jlebiannic $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 03.10.94/JN	Created.

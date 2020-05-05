@@ -22,7 +22,7 @@
 	V E R S I O N   C O N T R O L
 ==============================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_log.c 55062 2019-07-22 12:35:02Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: tr_log.c 55433 2020-03-16 12:37:08Z sodifrance $")
 /*==============================================================================
   Record all changes here and update the above string accordingly.
   3.00 12.01.93/MV	First version
@@ -30,6 +30,7 @@ MODULE("@(#)TradeXpress $Id: tr_log.c 55062 2019-07-22 12:35:02Z sodifrance $")
   Bug 6766: 11.04.11/JFC Avoid buffer overflow 
   TX-3123 - 15.07.2019 - Olivier REMAUD - UNICODE adaptation
   TX-3123 - 19.07.2019 - Olivier REMAUD - UNICODE adaptation
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 
 ==============================================================================*/
 
@@ -214,7 +215,6 @@ void tr_Fatal ( char *args, ... )
 void tr_OutOfMemory()
 {
 	char *basename;
-	size_t size;
 
 	basename = tr_basename(tr_progName);
 
@@ -251,7 +251,7 @@ void tr_Trace(int level, int withtime, const char *fmt, ...)
 	static FILE *fdtrace = NULL;
 	static int traceCounter = 1;
 	static int filesize = 0;
-	static int size, resultsize, allocated;
+	static int size, resultsize;
 	static char buf[TX_BUFTRACESIZE];
 	char* newbuf;
 	va_list args;
@@ -328,7 +328,6 @@ void tr_Trace(int level, int withtime, const char *fmt, ...)
 			traceCounter++;
 			filesize = 0;
 		}
-
 	}
 }
 

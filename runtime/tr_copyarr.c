@@ -15,6 +15,7 @@ MODULE("@(#)TradeXpress $Id: tr_dbparms.c 55062 2019-07-22 12:35:02Z sodifrance 
   4.04 28.03.2017/SCH(CG) TX-2963  Allocate dynamicaly memory for line in tr_CopyArr() 
   TX-3123 - 19.07.2019 - Olivier REMAUD - UNICODE adaptation
   Jira TX-3143 24.09.2019 - Olivier REMAUD - Passage au 64 bits
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 ============================================================================*/
 
 #include <stdio.h>
@@ -194,7 +195,7 @@ double tr_CopyArr( int mode, LogSysHandle *pFrom, char *sFrom, LogSysHandle *pTo
 					if ( tr_dbparms_trace ) {
 						fprintf( stderr, " Count=%d \n",(int)count);
 					}
-					free( name );
+					free( name ); name = NULL;
 				}
 				if ( tr_dbparms_trace ) {
 					fprintf( stderr, "Found [%d] from DB \n", i);
@@ -270,8 +271,10 @@ double tr_CopyArr( int mode, LogSysHandle *pFrom, char *sFrom, LogSysHandle *pTo
 			}
 		}
 	}
-	if ( prevName ) 
+	if ( prevName ) { 
 		free( prevName );
+		prevName = NULL;
+	}
 
 	if (!pTo) {
 		char buffer[3];

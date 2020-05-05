@@ -8,7 +8,7 @@
 	Copyright (c) 1996-2011 GenerixGroup
 ============================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_readdir.c 49765 2015-01-08 14:54:36Z tcellier $")
+MODULE("@(#)TradeXpress $Id: tr_readdir.c 55433 2020-03-16 12:37:08Z sodifrance $")
 /*LIBRARY(libruntime_version)
 */
 /*============================================================================
@@ -28,7 +28,8 @@ MODULE("@(#)TradeXpress $Id: tr_readdir.c 49765 2015-01-08 14:54:36Z tcellier $"
                         invalid or non-existing directory.
   Bug 1219 08.04.11/JFC ensure parameters given to tr_buildtext are not in the pool
 						if they need to be used after the call.
-  Jira TX-2580 23.12.14/YLI(CG) replace the function access by stat in the tr_FileAccess() 
+  Jira TX-2580 23.12.14/YLI(CG) replace the function access by stat in the tr_FileAccess()
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 ============================================================================*/
 #ifdef MACHINE_HPUX
 #define _LARGEFILE64_SOURCE
@@ -304,7 +305,6 @@ char *tr_FileName (char *filename)
 ======================================================================*/
 char *tr_FileFullName (char *filename)
 {
-	char *p;
 	char buf[1028];
 
 	if (!filename || !*filename)
@@ -598,8 +598,6 @@ int tr_FileAccess (char *filename, int type)
 	struct stat   rls_st;
     struct tr_lfs_stat st, ls_st;
 	int x;
-	tr_mode_t st_mode;
-	FILE *f;
 
 #ifndef MACHINE_WNT
 	int gid, ngrps;

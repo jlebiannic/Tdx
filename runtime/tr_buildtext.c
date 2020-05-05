@@ -9,7 +9,7 @@
 	Copyright (c) 1992 Telecom Finland/EDI Operations
 ========================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_buildtext.c 47429 2013-10-29 15:27:44Z cdemory $")
+MODULE("@(#)TradeXpress $Id: tr_buildtext.c 55433 2020-03-16 12:37:08Z sodifrance $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 12.01.93/MV	Created.
@@ -23,6 +23,7 @@ MODULE("@(#)TradeXpress $Id: tr_buildtext.c 47429 2013-10-29 15:27:44Z cdemory $
   3.02 30.03.99/JR,KP	varargs->stdargs
   Bug 1219: 08.04.11/JFC create tr_FreeMemPoolArgs for use in other functions
   Bug 6766: 08.04.11/JFC Allow buffer to override the 32Kb
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 ========================================================================*/
 
 #include <stdio.h>
@@ -54,7 +55,7 @@ void tr_FreeMemPoolArgs(char *fmt, va_list ap)
 	while (*fmt && fmt[0] != '\0') {
 		switch (*fmt) {
 			case '%':
-				*fmt++;
+				fmt++;
 				in_percent = 1;
 				while (*fmt && fmt[0] != '\0' && in_percent) {
 					switch (*fmt) {
@@ -70,28 +71,28 @@ void tr_FreeMemPoolArgs(char *fmt, va_list ap)
 						case '9':
 						case '.':
 						case '*':
-							*fmt++;
+							fmt++;
 							break;
 						case 's':
 							p = va_arg(ap, char *);
-							*fmt++;
+							fmt++;
 							tr_MemPoolFree(p);
 							in_percent = 0;
 							break;
 						case 'c':
 						case 'd':
 							d = va_arg(ap, int);
-							*fmt++;
+							fmt++;
 							in_percent = 0;
 							break;
 						default:
-							*fmt++;
+							fmt++;
 							in_percent = 0;
 					}
 				}
 				break;
 			default:
-				*fmt++;
+				fmt++;
 				break;
 		}
 	}
@@ -111,7 +112,7 @@ size_t tr_getBufSize(size_t minsize, const char *fmt, va_list ap)
 	while (*fmt && fmt[0] != '\0') {
 		switch (*fmt) {
 			case '%':
-				*fmt++;
+				fmt++;
 				in_percent = 1;
 				while (*fmt && fmt[0] != '\0' && in_percent) {
 					switch (*fmt) {
@@ -127,35 +128,35 @@ size_t tr_getBufSize(size_t minsize, const char *fmt, va_list ap)
 						case '9':
 						case '.':
 						case '*':
-							*fmt++;
+							fmt++;
 							break;
 						case 's':
 							p = va_arg(ap, char *);
-							*fmt++;
+							fmt++;
 							result += strlen(p);
 							in_percent = 0;
 							break;
 						case 'c':
 						case 'd':
 							d = va_arg(ap, int);
-							*fmt++;
+							fmt++;
 							result += 10;
 							in_percent = 0;
 							break;
 						case 'l':
 							va_arg(ap, double);
-							*fmt++;
+							fmt++;
 							result += 10;
 							in_percent = 0;
 							break;
 						default:
-							*fmt++;
+							fmt++;
 							in_percent = 0;
 					}
 				}
 				break;
 			default:
-				*fmt++;
+				fmt++;
 				break;
 		}
 	}

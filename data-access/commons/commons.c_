@@ -48,9 +48,11 @@ char* inttoa(int i) {
 
 void freeArray(char *array[], int nb) {
 	int i=0;
-	for (i = 0; i < nb; i++) {
-		free(array[i]);
-	}
+	if (nb>0){ 
+		for (i = 0; i < nb; i++) {
+			free(array[i]);
+		}
+	}	
 }
 
 char* arrayJoin(const char *fields[], int nb, char *sep) {

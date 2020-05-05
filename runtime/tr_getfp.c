@@ -8,7 +8,7 @@
 	Copyright (c) 1992-1994 Telecom Finland/EDI Operations
 ========================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_getfp.c 55330 2020-02-10 12:42:58Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: tr_getfp.c 55433 2020-03-16 12:37:08Z sodifrance $")
 /*LIBRARY(libruntime_version)
 */
 /*========================================================================
@@ -23,6 +23,7 @@ MODULE("@(#)TradeXpress $Id: tr_getfp.c 55330 2020-02-10 12:42:58Z sodifrance $"
   4.00 09.06.99/HT	trFileCloseAll for client-remote closing
   TX-3123 - 03.06.2019 - Olivier REMAUD - UNICODE adaptation
   Jira TX-3123 10.02.2020 - Olivier REMAUD - UNICODE adaptation
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 ==========================================================================
 
 	Filenames are strdupped, and the copies are free'd in here.
@@ -119,7 +120,7 @@ static struct record {
 	struct record *next;
 	char *name;
 	FILE *fp;
-	long offset;		/* offset if currently closed */
+	off_t offset;		/* offset if currently closed */
 	int status;		/* saved status from close */
 	char mode;		/* r, w or a */
 	char isregular;		/* just a regular plain file */
@@ -343,7 +344,7 @@ retry:
 		 */
 		struct record *old = NULL;
 		struct record *lru = NULL;
-		long offset;
+		off_t offset;
 
 		for (old = entry->next; old; old = old->next) {
 			if (old->isregular && old->fp)
@@ -357,7 +358,7 @@ retry:
 		 */
 		if (lru != NULL
 		 && (lru->mode == 'r' || fflush(lru->fp) == 0)
-		 && (offset = ftell(lru->fp)) != -1) {
+		 && (offset = ftello(lru->fp)) != -1) {
 			lru->offset = offset;
 			lru->status = tr_fclose(lru->fp, 0);
 			lru->fp = NULL;
@@ -377,8 +378,8 @@ retry:
 	entry = tr_files;
 	tr_files = entry->next;
 	--tr_nfiles_active;
-	tr_free(entry->name);
-	tr_free(entry);
+	tr_free(entry->name); entry->name = NULL;
+	tr_free(entry); entry = NULL;
 failed:
 	errno = err;
 
@@ -452,7 +453,7 @@ static int do_open(struct record *entry)
 				entry->isregular = 1;
 		}
 		if (entry->offset != 0 && entry->isregular)
-			fseek(fp, entry->offset, SEEK_SET);
+			fseeko(fp, entry->offset, SEEK_SET);
 
 		entry->fp = fp;
 		++tr_nfiles_open;
@@ -497,8 +498,7 @@ double tr_FileClose(char *filename)
 			--tr_nfiles_open;
 		}
 		--tr_nfiles_active;
-		tr_free(entry->name);
-		tr_free(entry);
+		tr_free(entry->name); entry->name = NULL;
 
 		
 		/* free encoding information */
@@ -507,9 +507,9 @@ double tr_FileClose(char *filename)
 			entry->converter = NULL;
 		}
 		if ( entry->encoding != NULL ) {
-			tr_free( entry->encoding );
+			tr_free( entry->encoding ); entry->encoding = NULL;
 		}
-
+		tr_free(entry); entry = NULL;
 
 		return ((double) status);
 	}
@@ -545,8 +545,8 @@ void tr_FileCloseAll()
 			--tr_nfiles_open;
 		}
 		--tr_nfiles_active;
-		tr_free(entry->name);
-		tr_free(entry);
+		tr_free(entry->name); entry->name = NULL;
+		tr_free(entry); entry = NULL;
 
 	}
 	return;

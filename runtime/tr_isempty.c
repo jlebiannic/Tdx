@@ -12,9 +12,11 @@
 	V E R S I O N   C O N T R O L
 ==============================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_isempty.c 47429 2013-10-29 15:27:44Z cdemory $")
+MODULE("@(#)TradeXpress $Id: tr_isempty.c 55433 2020-03-16 12:37:08Z sodifrance $")
 /*==============================================================================
   Record all changes here and update the above string accordingly.
+
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 ==============================================================================*/
 #include <ctype.h>
 
@@ -25,9 +27,6 @@ MODULE("@(#)TradeXpress $Id: tr_isempty.c 47429 2013-10-29 15:27:44Z cdemory $")
 ==============================================================================*/
 int tr_isempty (char *text)
 {
-	char *tmp;
-	char *p;
-
 	if (!text || !*text || text == TR_EMPTY)
 		return 1;
 	while (*text) {

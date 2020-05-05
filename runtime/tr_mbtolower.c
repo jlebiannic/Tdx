@@ -13,7 +13,8 @@ MODULE("@(#)TradeXpress $Id: tr_mbtolower.c $")
   Record all changes here and update the above string accordingly.
   TX-3123 - 12.06.2019 - Olivier REMAUD - UNICODE adaptation
   TX-3123 - 19.07.2019 - Olivier REMAUD - UNICODE adaptation
-  Jira TX-3123 19.11.2019 - Olivier REMAUD - UNICODE adaptation   
+  Jira TX-3123 19.11.2019 - Olivier REMAUD - UNICODE adaptation
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 ========================================================================*/
 
 #include <string.h>
@@ -81,7 +82,7 @@ char* tr_mbStrToLower( char *string )
 		return TR_EMPTY;
 
 	size_t count = mbstowcs( NULL, string, 0 );
-	wchar_t *wcstring = (wchar_t*) calloc( count + 1, sizeof(wchar_t) );
+	wchar_t *wcstring = (wchar_t*) tr_calloc( count + 1, sizeof(wchar_t) );
 	mbstowcs( wcstring, string, count );
 
 	size_t bufSz = (count + 2) * MB_CUR_MAX;
@@ -130,7 +131,7 @@ char* tr_mbStrToUpper( char *string )
 		return TR_EMPTY;
 
 	size_t count = mbstowcs( NULL, string, 0 );
-	wchar_t *wcstring = (wchar_t*) calloc( count + 1, sizeof(wchar_t) );
+	wchar_t *wcstring = (wchar_t*) tr_calloc( count + 1, sizeof(wchar_t) );
 	mbstowcs( wcstring, string, count );
 
 	size_t bufSz = (count + 2) * MB_CUR_MAX;

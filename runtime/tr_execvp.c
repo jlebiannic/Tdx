@@ -8,7 +8,7 @@
 	Copyright (c) 1992 Telecom Finland/EDI Operations
 ============================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_execvp.c 47429 2013-10-29 15:27:44Z cdemory $")
+MODULE("@(#)TradeXpress $Id: tr_execvp.c 55433 2020-03-16 12:37:08Z sodifrance $")
 /*LIBRARY(libruntime_version)
 */
 /*============================================================================
@@ -32,6 +32,7 @@ MODULE("@(#)TradeXpress $Id: tr_execvp.c 47429 2013-10-29 15:27:44Z cdemory $")
 			directly.
   3.07 07.12.99/JR	Castings addded. Spawn returned 255 when it should
   			have returned -1.
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 ============================================================================*/
 
 #include <stdio.h>
@@ -163,7 +164,6 @@ double tr_Spawnvp (char *command, char *arrayname)
 
 #else /* not WNT */
 
-	int  code;
 	int  pid;
 
 	fflush (stdout);

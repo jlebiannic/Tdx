@@ -71,11 +71,6 @@ char *tfBuild__LogSystemPath(LogSysHandle *, char *);
 
 FILE *tr_lsOpenFile(char *, char *);
 
-/*
- * General stubs for the functions. Only these should be used normally.
- */
-int		tr_localMode();
-
 char *tr_lsPath (LogSysHandle *handle, char *extension);
 int tr_lsFindFirst (LogSysHandle *, int, LogFieldHandle *, char *, ...);
 int tr_lsVFindFirst(LogSysHandle *, int, LogFieldHandle *, char *, va_list);
@@ -113,47 +108,14 @@ int tr_lsCloseFile( FILE *fp, char );
 void tr_lsOpenManualTransaction(LogSysHandle *handle);
 void tr_lsCloseManualTransaction(LogSysHandle *handle);
 void tr_lsRollbackManualTransaction(LogSysHandle *handle);
+void tr_lsTryOpenCloseTransaction(LogSysHandle *handle);
+void tr_lsOpenTransaction(LogSysHandle *handle);
+void tr_lsCloseTransaction(LogSysHandle *handle);
 
 /*
  * "Local" logsystem versions
  */
-char *tr_localPath (LogSysHandle *handle, char *extension);
-int tr_localFindFirst (LogSysHandle *, int, LogFieldHandle *, char *, ...);
-int tr_localVFindFirst(LogSysHandle *, int, LogFieldHandle *, char *, va_list);
-int tr_localFindNext(LogSysHandle *);
-void tr_localFreeEntryList(LogSysHandle *);
-char *tr_localGetTextVal(LogSysHandle *, LogFieldHandle *);
-double tr_localGetNumVal(LogSysHandle *, LogFieldHandle *);
-time_t tr_localGetTimeVal(LogSysHandle *, LogFieldHandle *);
-int tr_localSetTextVal(LogSysHandle *, LogFieldHandle *, char *);
-int tr_localSetNumVal(LogSysHandle *, LogFieldHandle *, double);
-int tr_localSetTimeVal(LogSysHandle *, LogFieldHandle *, char *);
-int tr_localCopyEntry(LogSysHandle *, LogSysHandle *);
-int tr_localCreate(LogSysHandle *, char *);
-int tr_localOpen(LogSysHandle *, char *);
-int tr_localRemove(LogSysHandle *);
-int tr_localReadEntry(LogSysHandle *, double);
-int tr_localWriteEntry(LogSysHandle *);
-int tr_localValidEntry(LogSysHandle *);
-char **tr_localFetchParms(LogSysHandle *ls, char *ext);
-int tr_localSetTextParm(LogSysHandle *, char *, char *, char *);
-char *tr_localGetTextParm(LogSysHandle *, char *, char *);
-void tr_localClearParms(LogSysHandle *, char *);
-int tr_localSaveParms(LogSysHandle *pLog, char *tExt, char **ta);
-int tr_localTryGetUniq(LogSysHandle *,char *, char *, int, int, int *);
-int tr_localIsValidEntry(LogSysHandle *handle);
 
-
-void tr_localResetFile( FILE *fp );
-int tr_localCloseFile( FILE *fp );
-
-void tr_localTryOpenCloseTransaction(LogSysHandle *handle);
-void tr_localOpenManualTransaction(LogSysHandle *handle);
-void tr_localCloseManualTransaction(LogSysHandle *handle);
-void tr_localRollbackManualTransaction(LogSysHandle *handle);
-void tr_localOpenTransaction(LogSysHandle *handle);
-void tr_localCloseTransaction(LogSysHandle *handle);
-void tr_localRollbackTransaction(LogSysHandle *handle);
 
 /*
  * Remote ones.

@@ -9,7 +9,7 @@
 	Copyright (c) 1992 Telecom Finland/EDI Operations
 ============================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_amcopy.c 55167 2019-09-24 13:48:37Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: tr_amcopy.c 55433 2020-03-16 12:37:08Z sodifrance $")
 /*LIBRARY(libruntime_version)
 */
 /*============================================================================
@@ -17,6 +17,7 @@ MODULE("@(#)TradeXpress $Id: tr_amcopy.c 55167 2019-09-24 13:48:37Z sodifrance $
   3.01 13.02.96/JN	Change in tr_arrays, reason to fix sloppiness here.
   4.00	04.08.99/JH	tr_amelemcopy added.
   Jira TX-3143 24.09.2019 - Olivier REMAUD - Passage au 64 bits
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 ============================================================================*/
 #ifndef MACHINE_WNT
 #include <strings.h>
@@ -83,9 +84,10 @@ int tr_amelemcopy(char *to, char *firstelem, char **element, int index,
 	/*extern MessageNode *tr_segAddress;
 	extern double tr_arrComposites;
 	extern double tr_arrComponents;*/
-
+#if 0
 	/* Handle to the list of Element structs */
 	Element *eleminfo = (Element*) ((MessageNode*)segAddr)->data;
+#endif
 
 	tr_am_textremove(to);
 

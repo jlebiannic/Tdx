@@ -13,6 +13,7 @@ MODULE("@(#)TradeXpress $Id: tr_locale.c $")
  *   Record all changes here and update the above string accordingly.
  *
  *   TX-3123 - 18.06.2019 - Olivier REMAUD - UNICODE adaptation
+ *   Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
  *
  *   ========================================================================*/
 
@@ -47,9 +48,6 @@ int tr_UseLocaleUTF8()
                 if (localeName == NULL) {
                         localeName = DEFAULT_LOCALE;
                 }
-
-                /* keep a copy of original locale */
-                locale_t oldLocale = uselocale( (locale_t) NULL );
 
                 /* change values of global locale */
                 char *ctypeOldLocale = setlocale( LC_CTYPE, localeName );

@@ -9,7 +9,7 @@
 #define TR_LIST
 #define TR_MEM /* Do not redefine malloc functions */
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_list.c 47429 2013-10-29 15:27:44Z cdemory $")
+MODULE("@(#)TradeXpress $Id: tr_list.c 55433 2020-03-16 12:37:08Z sodifrance $")
 /*============================================================================
 
 	$Log:  $
@@ -24,6 +24,8 @@ MODULE("@(#)TradeXpress $Id: tr_list.c 47429 2013-10-29 15:27:44Z cdemory $")
 
 	Revision 1.1  2011-04-11 09:53:02  jfranc
 	Bugz 10092 : Add index on mem pool to get pointer quicker for remove.cf. Bugz 1219.
+
+    Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 
 
 ============================================================================*/
@@ -84,7 +86,7 @@ void tr_SearchDump(AbstractSearchTab *hashtab)
 	{
 		tabNode = &hashtab->tab[i];
 		if (tracelevel >= 5)
-			sprintf(buf,"%s\t0x%x", buf, tabNode);
+			sprintf(buf,"%s\t%p", buf, tabNode);
 		sprintf(buf,"%s\t%d", buf, tabNode->count);
 		j++;
 		if (j == 16) {
@@ -99,7 +101,7 @@ void tr_SearchDump(AbstractSearchTab *hashtab)
 
 void tr_SearchTableClear(AbstractSearchTab *hashtab)
 {
-	int i, j;
+	int i;
 	AbstractTabNode *tabNode;
 
 	if (!hashtab) {
@@ -109,7 +111,6 @@ void tr_SearchTableClear(AbstractSearchTab *hashtab)
 	if (tracelevel >= 1) 
 		tr_SearchDump(hashtab);
 
-	j = 0;
 	tr_Trace(1, 1, "tr_SearchTableClear hashtab 0x%x count %d\n", hashtab, hashtab->count);
 	for (i = 0; i < hashtab->count; i++)
 	{
@@ -117,7 +118,7 @@ void tr_SearchTableClear(AbstractSearchTab *hashtab)
 		tr_Trace(3, 1, "tr_SearchTableClear tab[%d] 0x%x count %d nodes 0x%x\n", i, tabNode, tabNode->count, tabNode->nodes);
 		if (tabNode->nodes) {
 			if (!hashtab->pClearNodes(tabNode)) {
-				fprintf(stderr, "*** ERROR could not clear hash table[%d] 0x%x ***\n",  i, hashtab);
+				fprintf(stderr, "*** ERROR could not clear hash table[%d] %p ***\n",  i, hashtab);
 			}
 		}
 	}
@@ -130,7 +131,7 @@ void tr_SearchTableFree(AbstractSearchTab *hashtab)
 
 void tr_SearchTableAdd(AbstractSearchTab *hashtab, AbstractNode iInfo)
 {
-	int index, i;
+	int index;
 	AbstractNode nodes;
 	AbstractTabNode *tabNode;
 

@@ -22,7 +22,7 @@
 
 ============================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_parsetime.c 55238 2019-11-19 13:30:06Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: tr_parsetime.c 55433 2020-03-16 12:37:08Z sodifrance $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 03.10.94/JN      Created (from ls_timelib).
@@ -48,6 +48,7 @@ MODULE("@(#)TradeXpress $Id: tr_parsetime.c 55238 2019-11-19 13:30:06Z sodifranc
   4.05 25.02.2016/CGL(CG)   TX-2816: Add the option yyyymmddHHMMSS
   4.06 20.12.2016/SCH(CG)   TX-2929: Default unit is switched form day to seconds
   Jira TX-3143 19.11.2019 - Olivier REMAUD - Passage au 64 bits
+  Jira TX-3143 16.03.2020 - Olivier REMAUD - Passage au 64 bits
 ========================================================================*/
 
 #include <stdio.h>
@@ -352,7 +353,7 @@ static void compile(char *text, time_t *times)
 {
 	char *end_text;
 	char *cp;
-	int i, j, complement = 0;
+	int i, complement = 0;
 	struct tm t, *t2;
 	int zero = 0;
 
@@ -659,7 +660,7 @@ static void compile(char *text, time_t *times)
 			case 'w': complement = WEEK_SEC; break;
 			case 'H': complement = HOUR_SEC; break;
 			case 'M': complement = MIN_SEC;  break;
-			case 'S': z:
+			case 'S': 
 			complement = 1;  break;
 			
 			/* CGL (CG) TX-2433 30/04/2013 : Add the option where there is only one number 
