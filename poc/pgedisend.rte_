@@ -1,0 +1,55 @@
+!  Date: 21/04/2020
+!   Nom: QAL-PGR-01.rte
+!Auteur: CDE
+!   But: simulation d'edisend 
+
+! créé une entrée de syslog,  puis lance plusieurs fois pginterm en redirrigeant à chaque étappe son stderr vers l'extension l 
+
+#define STATUS_STARTING                 "Starting..."
+#define STATUS_RESTARTING               "Restarting..."
+#define STATUS_PRE_PROCESSING           "Pre processing..."
+#define STATUS_POST_PROCESSING          "Post processing..."
+#define STATUS_TRANSLATING              "Translating..."
+#define STATUS_MAKING_INTERCHANGE       "Making interchg..."
+#define STATUS_TRANSPORTING             "Transporting..."
+#define STATUS_OK             "OK"
+#define STATUS_ERROR          "ERROR"
+
+base "syslog.cfg" SYSLOG
+begin
+	SYSLOG:=new(sSYSLOG)
+	nIndex:=SYSLOG.INDEX
+	SYSLOG.STATUS:=STATUS_STARTING
+	redirect(LOGGING,SYSLOG.l)
+	print("Creating INDEX ",SYSLOG.INDEX,NL) 
+	log("Creating INDEX ",SYSLOG.INDEX,NL) 
+	close(SYSLOG.l)
+	system(build("./pginterm INDEX=",SYSLOG.INDEX," STAGE=\"",STATUS_PRE_PROCESSING,"\""))	
+	redirect(LOGGING,SYSLOG.l)
+	print("Apres appel pgintem",NL)
+	log("Apres appel pgintem",NL)
+	print("INDEX ",SYSLOG.INDEX," STAGE 1",NL) 
+	log("INDEX ",SYSLOG.INDEX," STAGE 1",NL) 
+	close(SYSLOG.l)
+	system(build("./pginterm INDEX=",SYSLOG.INDEX," STAGE=\"",STATUS_TRANSLATING,"\""))	
+	redirect(LOGGING,SYSLOG.l)
+	print("Apres appel pgintem",NL)
+	log("Apres appel pgintem",NL)
+	print("INDEX ",SYSLOG.INDEX," STAGE 2",NL) 
+	log("INDEX ",SYSLOG.INDEX," STAGE 2",NL) 
+	close(SYSLOG.l)
+	system(build("./pginterm INDEX=",SYSLOG.INDEX," STAGE=\"",STATUS_MAKING_INTERCHANGE,"\""))	
+	redirect(LOGGING,SYSLOG.l)
+	print("Apres appel pgintem",NL)
+	log("Apres appel pgintem",NL)
+	print("INDEX ",SYSLOG.INDEX," STAGE 3",NL) 
+	log("INDEX ",SYSLOG.INDEX," STAGE 3",NL) 
+	close(SYSLOG.l)
+	system(build("./pginterm INDEX=",SYSLOG.INDEX," STAGE=\"",STATUS_TRANSPORTING,"\""))	
+	redirect(LOGGING,SYSLOG.l)
+	print("Apres appel pgintem",NL)
+	log("Apres appel pgintem",NL)
+	SYSLOG.INDEX:=nIndex
+	SYSLOG.INFO:="finished"
+	SYSLOG.STATUS:=STATUS_OK
+endbegin

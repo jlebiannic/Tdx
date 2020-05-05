@@ -1,0 +1,7 @@
+base "syslog.cfg" SYSLOG
+begin
+    SYSLOG:=new(sSYSLOG)
+    if valid(SYSLOG) then
+	print("hello") >> SYSLOG.l
+    endif
+endbegin

@@ -1,0 +1,28 @@
+!  Date: 21/04/2020
+!   Nom: QAL-PGS-02.rte
+!Auteur: CDE
+!   But: simule une étappe d'edisend 
+
+% pginterm INDEX=numindex STAGE=num
+%   s'accroche à la syslog INDEX et ajoute à l'extension l de cette entrée plusieurs lignes dont la valeur STAGE
+%   est appelé par pgedisend pour simuler des étappes de l'edisend
+
+base "syslog.cfg" SYSLOG
+begin
+	SYSLOG:=new(sSYSLOG)
+	remove(SYSLOG)
+	SYSLOG:=find(sSYSLOG,INDEX=number(pINDEX))
+	if valid(SYSLOG)  then
+		SYSLOG.STATUS:=pSTAGE
+		redirect(LOGGING,SYSLOG.l)
+		print("Attaching INDEX ",SYSLOG.INDEX," STAGE ",pSTAGE,NL) 
+		log("Attaching INDEX ",SYSLOG.INDEX," STAGE ",pSTAGE,NL) 
+		log("Action One",NL) 
+		log("Action Two",NL) 
+		log("Action Three",NL) 
+		if (sSLEEP <> EMPTY) then 
+			system(build("sleep ",sSLEEP))
+		endif
+		close(SYSLOG.l)
+	endif
+endbegin

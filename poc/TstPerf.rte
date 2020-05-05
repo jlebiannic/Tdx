@@ -2,9 +2,14 @@ base "syslog.cfg" SYSLOG
 begin
     nI:=1
     nSeq:=1
-    print("CREATION",NL)
-    while nI<=5000 do
-        SYSLOG:=new("/data1/home/jlebiannic/DEVEL/TX5_2_UNICODE/Linux/databases/syslog")
+
+    !SYSLOG:=new(sSYSLOG)
+    nStart:=number(time("now","%a"))
+    nStepStart:=nStart
+
+    print("CREATION ",time("now","%H:%M:%S"),NL)
+    while nI<=1 do
+        SYSLOG:=new(sSYSLOG)
         SYSLOG.INFO:=build("Test",nI:05)
         SYSLOG.USERNUM:=nSeq
         flush(SYSLOG)
@@ -14,16 +19,35 @@ begin
         endif
         nI++
     endwhile
-    print("AFFICHAGE",NL)
-    SYSLOG:=find("/data1/home/jlebiannic/DEVEL/TX5_2_UNICODE/Linux/databases/syslog")
+    nStep:=number(time("now","%a"))
+    print("Durée:",nStep-nStepStart," s",NL)
+    nStepStart:=nStep
+
+    print("AFFICHAGE ",time("now","%H:%M:%S"),NL)
+    SYSLOG:=find(sSYSLOG)
+    print("APRES FIND",NL)
     while valid(SYSLOG) do
-        print(SYSLOG.INDEX," ",SYSLOG.INFO," ",SYSLOG.USERNUM,NL)
+        print("DANS WHILE",NL)
+        !print(SYSLOG.INDEX," ",SYSLOG.INFO," ",SYSLOG.USERNUM,NL) > SYSLOG.l	
+        !close(SYSLOG.l)
+        log(SYSLOG.INDEX," ",SYSLOG.INFO," ",SYSLOG.USERNUM,NL)
         SYSLOG:=find()
     endwhile
-    print("AFFICHAGE",NL)
-    SYSLOG:=find("/data1/home/jlebiannic/DEVEL/TX5_2_UNICODE/Linux/databases/syslog",INFO="Test014*")
+    print("APRES ENDWHILE",NL)
+    nStep:=number(time("now","%a"))
+    print("Durée:",nStep-nStepStart," s",NL)
+    nStepStart:=nStep
+
+    print("AFFICHAGE ",time("now","%H:%M:%S"),NL)
+    SYSLOG:=find(sSYSLOG,INFO="Test0*14*")
     while valid(SYSLOG) do
-        print(SYSLOG.INDEX," ",SYSLOG.INFO," ",SYSLOG.USERNUM,NL)
+        print(SYSLOG.INDEX," ",SYSLOG.INFO," ",SYSLOG.USERNUM,NL) > SYSLOG.l
+        close(SYSLOG.l)
+        !log(SYSLOG.INDEX," ",SYSLOG.INFO," ",SYSLOG.USERNUM,NL)
         SYSLOG:=find()
     endwhile
+    nStep:=number(time("now","%a"))
+    print("Durée:",nStep-nStepStart," s",NL)
+    print("FIN ",time("now","%H:%M:%S"),NL)
+    print("Durée Totale:",nStep-nStart," s",NL)
 endbegin

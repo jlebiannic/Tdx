@@ -65,7 +65,8 @@ int Service_findEntry(LogEntry *entry) {
 		/* statement OK (but still result == number of row/entry == 0) */
 		result++;
 		if (dao->hasNextEntry(dao)) {
-			for (i = 0; i < dao->getResultNbFields(dao); i++) {
+			int nfields = dao->getResultNbFields(dao);
+			for (i = 0; i < nfields; i++) {
 				buildEntry(entry, i);
 			}
 		}

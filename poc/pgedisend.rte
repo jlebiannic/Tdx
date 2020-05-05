@@ -1,0 +1,5 @@
+base "syslog.cfg" SYSLOG
+begin
+	SYSLOG:=find(sSYSLOG,INDEX=number(pINDEX))
+	print(SYSLOG.INDEX," ",SYSLOG.INFO,NL)
+endbegin
