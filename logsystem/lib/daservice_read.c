@@ -4,6 +4,7 @@
 #include "logsystem.definitions.h"
 #include "logsystem.dao.h"
 #include "logsystem.h"
+#include "daservice_common.h"
 
 static void buildFilterAndValues(char **pSqlStatement, LogFilter *lf, char **values, int *nbValues);
 static int calculateFilterLen(LogFilter *lf);
@@ -11,7 +12,6 @@ static int buildIndexes(LogSystem *log, LogIndex **pIndexes, LogFilter *lf);
 static int getOffset(LogFilter *lf);
 static int getLimit(LogFilter *lf);
 static int isNoPageCount();
-static const char* strPrefixColName(const char *name);
 static const char* getOpString(int opValue);
 static char* dao_wildcard(FilterRecord *f, char *p_text);
 static void buildEntry(LogEntry *entry, int i);
@@ -147,14 +147,6 @@ static int getOffset(LogFilter *lf) {
 		/* fin WBA-333 */
 	}
 	return offset;
-}
-
-static const char* strPrefixColName(const char *name) {
-	if (strcmp(name, "INDEX") == 0) {
-		return "TX_";
-	} else {
-		return "";
-	}
 }
 
 static int isNoPageCount() {
