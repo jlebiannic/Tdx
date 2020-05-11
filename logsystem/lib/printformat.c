@@ -10,7 +10,7 @@
 	Routines used to access fields in logentries.
 ========================================================================*/
 #include "conf/config.h"
-MODULE("@(#)TradeXpress $Id: printformat.c 55239 2019-11-19 13:50:31Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: printformat.c 55487 2020-05-06 08:56:27Z jlebiannic $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 03.10.94/JN	Created.
@@ -39,10 +39,10 @@ MODULE("@(#)TradeXpress $Id: printformat.c 55239 2019-11-19 13:50:31Z sodifrance
 
 #define FILTER_STRINGS
 
-#include "logsystem.sqlite.h"
+#include "logsystem.dao.h"
 #include "runtime/tr_prototypes.h"
 
-static void sqlite_topieces(char *namevalue, char **name, char **format)
+static void dao_topieces(char *namevalue, char **name, char **format)
 {
 	char *cp = namevalue;
 
@@ -60,11 +60,11 @@ static void sqlite_topieces(char *namevalue, char **name, char **format)
 }
 
 /* 12.10.98/KP Was static */
-PrintFormat * sqlite_alloc_printformat()
+PrintFormat * dao_alloc_printformat()
 {
 	PrintFormat *pf;
 
-	pf = sqlite_log_malloc(sizeof(*pf));
+	pf = dao_log_malloc(sizeof(*pf));
 	memset(pf, 0, sizeof(*pf));
 
 	/* 3.10/CD Column separator */
@@ -73,41 +73,41 @@ PrintFormat * sqlite_alloc_printformat()
 	return (pf);
 }
 
-void sqlite_printformat_insert(PrintFormat **pfp, char *name, char *format)
+void dao_printformat_insert(PrintFormat **pfp, char *name, char *format)
 {
 	int n;
 	FormatRecord *r;
 	PrintFormat *pf;
 
 	if (!*pfp)
-		*pfp = sqlite_alloc_printformat();
+		*pfp = dao_alloc_printformat();
 	pf = *pfp;
 
 	if (pf->format_count >= pf->format_max)
     {
 		pf->format_max += 64;
 		n = pf->format_max * sizeof(*pf->formats);
-		pf->formats = sqlite_log_realloc(pf->formats, n);
+		pf->formats = dao_log_realloc(pf->formats, n);
 	}
 	r = &pf->formats[pf->format_count++];
 
-	r->name = sqlite_log_strdup(name);
-	r->format = format ? sqlite_log_strdup(format) : NULL;
+	r->name = dao_log_strdup(name);
+	r->format = format ? dao_log_strdup(format) : NULL;
 	r->width = -1;
 	r->field = NULL;
 }
 
-void sqlite_printformat_add(PrintFormat **pfp, char *namevalue)
+void dao_printformat_add(PrintFormat **pfp, char *namevalue)
 {
 	char *name, *format;
 
-	sqlite_topieces(namevalue, &name, &format);
-	sqlite_printformat_insert(pfp, name, format);
+	dao_topieces(namevalue, &name, &format);
+	dao_printformat_insert(pfp, name, format);
 }
 
 /* Format of input file:
  * [p]FIELDNAME=VALUE */
-int sqlite_printformat_read(PrintFormat **pfp, FILE *fp)
+int dao_printformat_read(PrintFormat **pfp, FILE *fp)
 {
 	char *cp, buf[1024];
 
@@ -117,12 +117,12 @@ int sqlite_printformat_read(PrintFormat **pfp, FILE *fp)
 			continue;
 		if ((cp = strchr(buf, '\n')) != NULL)
 			*cp = 0;
-		sqlite_printformat_add(pfp, buf);
+		dao_printformat_add(pfp, buf);
 	}
 	return (0);
 }
 
-int sqlite_printformat_write(PrintFormat *pf, FILE *fp)
+int dao_printformat_write(PrintFormat *pf, FILE *fp)
 {
 	FormatRecord *r;
 
@@ -139,7 +139,7 @@ int sqlite_printformat_write(PrintFormat *pf, FILE *fp)
 	return (0);
 }
 
-void sqlite_printformat_clear(PrintFormat *pf)
+void dao_printformat_clear(PrintFormat *pf)
 {
 	FormatRecord *r;
 
@@ -157,7 +157,7 @@ void sqlite_printformat_clear(PrintFormat *pf)
 	pf->estimated_linelen = 0;
 }
 
-void sqlite_printformat_free(PrintFormat *pf)
+void dao_printformat_free(PrintFormat *pf)
 {
 	FormatRecord *r;
 
@@ -181,7 +181,7 @@ void sqlite_printformat_free(PrintFormat *pf)
  * to corresponding fields in the logsystem.
  * Unknown fields are ignored.
  * Returns total width of output. */
-int sqlite_logsys_compileprintform(LogSystem *ls, PrintFormat *pf)
+int dao_logsys_compileprintform(LogSystem *ls, PrintFormat *pf)
 {
 	int i, width = 0;
 	LogField *field;
@@ -200,7 +200,7 @@ int sqlite_logsys_compileprintform(LogSystem *ls, PrintFormat *pf)
 		r->width = 0;
 		r->field = NULL;
 
-		field = sqlite_logsys_getfield(ls, r->name);
+		field = dao_logsys_getfield(ls, r->name);
 		if (!field)
 			continue;
 
@@ -242,7 +242,7 @@ int sqlite_logsys_compileprintform(LogSystem *ls, PrintFormat *pf)
 	return (width);
 }
 
-int sqlite_logfield_printformat_offset(LogField *f, PrintFormat *pf)
+int dao_logfield_printformat_offset(LogField *f, PrintFormat *pf)
 {
 	FormatRecord *r;
 	int off = 0;
@@ -262,30 +262,30 @@ int sqlite_logfield_printformat_offset(LogField *f, PrintFormat *pf)
 	return (-1);
 }
 
-PrintFormat * sqlite_logsys_defaultformat(LogSystem *log)
+PrintFormat * dao_logsys_defaultformat(LogSystem *log)
 {
 	PrintFormat *pf;
 	LogField *field;
 
-	pf = sqlite_alloc_printformat();
+	pf = dao_alloc_printformat();
 
 	for (field = log->label->fields; field->type; ++field)
     {
-		sqlite_printformat_insert(&pf, field->name.string, field->format.string);
+		dao_printformat_insert(&pf, field->name.string, field->format.string);
     }
 
 	return (pf);
 }
 
-PrintFormat * sqlite_logsys_namevalueformat(LogSystem *log)
+PrintFormat * dao_logsys_namevalueformat(LogSystem *log)
 {
 	PrintFormat *pf;
 	LogField *field;
 	int len, maxlen = 64;
-	char *buffer = sqlite_log_malloc(maxlen);
+	char *buffer = dao_log_malloc(maxlen);
 	char *namep;
 
-	pf = sqlite_alloc_printformat();
+	pf = dao_alloc_printformat();
 
 	pf->is_namevalue = 1;
 
@@ -296,7 +296,7 @@ PrintFormat * sqlite_logsys_namevalueformat(LogSystem *log)
         {
 			maxlen = len;
 			free(buffer);
-			buffer = sqlite_log_malloc(maxlen);
+			buffer = dao_log_malloc(maxlen);
 		}
 		strcpy(buffer, field->name.string);
 		namep = buffer + strlen(buffer);
@@ -311,13 +311,13 @@ PrintFormat * sqlite_logsys_namevalueformat(LogSystem *log)
             case FIELD_INTEGER: strcpy(namep, "%d\n");                break;
             case FIELD_NUMBER:  strcpy(namep, "%lf\n");               break;
 		}
-		sqlite_printformat_insert(&pf, field->name.string, buffer);
+		dao_printformat_insert(&pf, field->name.string, buffer);
 	}
 	free(buffer);
 	return (pf);
 }
 
-int sqlite_printformat_printables(PrintFormat *pf, char *name)
+int dao_printformat_printables(PrintFormat *pf, char *name)
 {
 	FormatRecord *f;
 

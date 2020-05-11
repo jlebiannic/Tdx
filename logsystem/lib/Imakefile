@@ -24,57 +24,7 @@ ARFLAGS=$(SQLITELIB) /OUT:
 SQLITEOBJ=
 #endif
 
-CFLAGS=$(DEBUG_FLAGS) -Wall
-
-/* old legacy (no sqlite) : remove this one day */
-OLD_LEGACY_OBJ=port.old_legacy.$(OBJSFX) \
-allocation.old_legacy.$(OBJSFX) \
-cleanup.old_legacy.$(OBJSFX) \
-defcleanup.old_legacy.$(OBJSFX) \
-hints.old_legacy.$(OBJSFX) \
-access.old_legacy.$(OBJSFX) \
-filter.old_legacy.$(OBJSFX) \
-external.old_legacy.$(OBJSFX) \
-memalloc.old_legacy.$(OBJSFX) \
-messages.old_legacy.$(OBJSFX) \
-makelist.old_legacy.$(OBJSFX) \
-clusterlist.old_legacy.$(OBJSFX) \
-io.old_legacy.$(OBJSFX) \
-locking.old_legacy.$(OBJSFX) \
-sigmask.old_legacy.$(OBJSFX) \
-printstuff.old_legacy.$(OBJSFX) \
-operate.old_legacy.$(OBJSFX) \
-removal.old_legacy.$(OBJSFX) \
-printformat.old_legacy.$(OBJSFX) \
-readconfig.old_legacy.$(OBJSFX) \
-hook0.old_legacy.$(OBJSFX) \
-copyfiles.old_legacy.$(OBJSFX) \
-debug.old_legacy.$(OBJSFX)
-
-Object(port.old_legacy,old_legacy/port.old_legacy,$(EMPTY),$(EMPTY))
-Object(io.old_legacy,old_legacy/io.old_legacy,$(EMPTY),$(EMPTY))
-Object(allocation.old_legacy,old_legacy/allocation.old_legacy,$(EMPTY),$(EMPTY))
-Object(cleanup.old_legacy,old_legacy/cleanup.old_legacy,$(EMPTY),$(EMPTY))
-Object(defcleanup.old_legacy,old_legacy/defcleanup.old_legacy,$(EMPTY),$(EMPTY))
-Object(sigmask.old_legacy,old_legacy/sigmask.old_legacy,$(EMPTY),$(EMPTY))
-Object(hints.old_legacy,old_legacy/hints.old_legacy,$(EMPTY),$(EMPTY))
-Object(locking.old_legacy,old_legacy/locking.old_legacy,$(EMPTY),$(EMPTY))
-Object(removal.old_legacy,old_legacy/removal.old_legacy,$(EMPTY),$(EMPTY))
-Object(access.old_legacy,old_legacy/access.old_legacy,$(EMPTY),$(EMPTY))
-Object(filter.old_legacy,old_legacy/filter.old_legacy,$(EMPTY),$(EMPTY))
-Object(operate.old_legacy,old_legacy/operate.old_legacy,$(EMPTY),$(EMPTY))
-Object(makelist.old_legacy,old_legacy/makelist.old_legacy,$(EMPTY),$(EMPTY))
-Object(clusterlist.old_legacy,old_legacy/clusterlist.old_legacy,$(EMPTY),$(EMPTY))
-Object(memalloc.old_legacy,old_legacy/memalloc.old_legacy,$(EMPTY),$(EMPTY))
-Object(messages.old_legacy,old_legacy/messages.old_legacy,$(EMPTY),$(EMPTY))
-Object(printstuff.old_legacy,old_legacy/printstuff.old_legacy,$(EMPTY),$(EMPTY))
-Object(printformat.old_legacy,old_legacy/printformat.old_legacy,$(EMPTY),$(EMPTY))
-Object(readconfig.old_legacy,old_legacy/readconfig.old_legacy,$(EMPTY),$(EMPTY))
-Object(external.old_legacy,old_legacy/external.old_legacy,$(EMPTY),$(EMPTY))
-Object(debug.old_legacy,old_legacy/debug.old_legacy,$(EMPTY),$(EMPTY))
-Object(hook0.old_legacy,old_legacy/hook0.old_legacy,$(EMPTY),$(EMPTY))
-Object(copyfiles.old_legacy,old_legacy/copyfiles.old_legacy,$(EMPTY),$(EMPTY))
-/* old legacy (no sqlite) : remove this one day */
+CFLAGS=$(DEBUG_FLAGS) -Werror=implicit-function-declaration
 
 PlainSource(tx_sqlite)
 PlainSource(port)
@@ -91,8 +41,8 @@ PlainSource(messages)
 PlainSource(printstuff)
 PlainSource(printformat)
 PlainSource(readconfig)
-PlainSource(external_trigger)
-PlainSource(external)
+/*PlainSource(external_trigger)
+PlainSource(external)*/
 PlainSource(debug)
 PlainSource(copyfiles)
 PlainSource(io)
@@ -101,7 +51,6 @@ PlainSource(tx_log_encoding)
 PlainSource(logsystem)
 PlainSource(dummysymb)
 
-PlainSource(dastub)
 PlainSource(daservice_read)
 PlainSource(daservice_update)
 
@@ -123,8 +72,8 @@ messages.$(OBJSFX) \
 printstuff.$(OBJSFX) \
 printformat.$(OBJSFX) \
 readconfig.$(OBJSFX) \
-external_trigger.$(OBJSFX) \
-external.$(OBJSFX) \
+/*external_trigger.$(OBJSFX) \
+external.$(OBJSFX) \*/
 debug.$(OBJSFX) \
 copyfiles.$(OBJSFX) \
 io.$(OBJSFX) \
@@ -132,7 +81,6 @@ tx_log_encoding.$(OBJSFX) \
 $(OLD_LEGACY_OBJ) \
 $(SQLITEOBJ) \
 
-dastub.$(OBJSFX) \
 daservice_read.$(OBJSFX) \
 daservice_update.$(OBJSFX) \
 )

@@ -11,7 +11,7 @@
 ========================================================================*/
 #include "conf/config.h"
 LIBRARY(liblogsystem_version)
-MODULE("@(#)TradeXpress $Id: build.c 55239 2019-11-19 13:50:31Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: build.c 55499 2020-05-07 16:25:38Z jlebiannic $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 03.10.94/JN	Created.
@@ -31,8 +31,8 @@ MODULE("@(#)TradeXpress $Id: build.c 55239 2019-11-19 13:50:31Z sodifrance $")
 #include <unistd.h>
 #endif
 
-#include "logsystem/lib/logsystem.h"
-#include "logsystem/lib/logsystem.sqlite.h"
+#include "logsystem/lib/logsystem.dao.h"
+#include "logsystem/lib/logsystem.dao.h"
 
 #define _BUILD_C
 #include "logsystem/lib/lstool.h"
@@ -60,11 +60,11 @@ int logsys_buildsystem(char *sysname, char *cfgfile, struct opt options)
 	FILE *fp = NULL;
 	int statusBase;
 
-	log = logsys_alloc(sysname);
+	log = dao_logsys_alloc(sysname);
 
 	if (options.rereadCfg == 1)
 	{
-		if (logsys_readlabel(log) != 0)
+		if (dao_logsys_readlabel(log) != 0)
 			bail_out("Cannot reconfigure the specified base %s. Either it does not exist, or you mispelled the name, or it may be corrupted.", sysname);
 		old_label = log->label;
 	}
@@ -73,7 +73,7 @@ int logsys_buildsystem(char *sysname, char *cfgfile, struct opt options)
 	/* label is expanded as needed by readconfig. */
 	/* on first build, we reorder the cfgfile to stay at maximum compatible with pre-5.0.4 binaries
 	 * on reconfig, order is broken if we had a column */
-	log->label = logsys_readconfig(cfgfile,options.rereadCfg);
+	log->label = dao_logsys_readconfig(cfgfile,options.rereadCfg);
 
 	if (log->label == NULL)
 		bail_out("Cannot open %s", cfgfile);
@@ -83,7 +83,7 @@ int logsys_buildsystem(char *sysname, char *cfgfile, struct opt options)
 	 * - resizing a field (growing, better than shrinking)
 	 * - adding a field
 	 */
-	if ((options.rereadCfg == 1) && (loglabel_compareconfig(old_label,log->label) == -1))
+	if ((options.rereadCfg == 1) && (dao_loglabel_compareconfig(old_label,log->label) == -1))
 		Really = 0;
 
 	if (Really)
@@ -122,7 +122,7 @@ int logsys_buildsystem(char *sysname, char *cfgfile, struct opt options)
 		logsys_createsqlindexes(cfgfile, log);
 		if ((options.rereadCfg == 0) && (options.checkAffinities == 0))
 		{
-			status = logsys_createdata_sqlite(log, Access_mode);
+			status = logsys_createdata_dao(log, Access_mode);
 		}
 
 
@@ -133,7 +133,7 @@ int logsys_buildsystem(char *sysname, char *cfgfile, struct opt options)
 			 * - resizing a field (growing, better than shrinking)
 			 * - adding a field
 			 */
-			status = logdata_reconfig(old_label, log);
+			status = dao_logdata_reconfig(old_label, log);
 			/* save (recreate) the updated label to the label file */
 			logsys_createlabel(log);
 		}
@@ -141,18 +141,18 @@ int logsys_buildsystem(char *sysname, char *cfgfile, struct opt options)
 		if (options.checkAffinities == 1)
 		{
 			/* check whether sqlite field affinities match label field type and correct them if necessary */
-			status = loglabel_checkaffinities(log);
+			status = dao_loglabel_checkaffinities(log);
 		}
 
 		umask(omask);
 
 		if (!Quiet && status == 0)
 		{
-			logsys_dumplabelfields(log->label);
+			dao_logsys_dumplabelfields(log->label);
 		}
 	}
 
-    logsys_close(log);
+    dao_logsys_close(log);
     return 0;
 }
 
@@ -168,7 +168,7 @@ void logsys_createlabel(LogSystem *log)
 	labelsize = LABELSIZE(log->label);
 	labelbase = (char *) log->label;
 
-	fd = logsys_openfile(log, LSFILE_LABEL, O_TRUNC | O_RDWR | O_CREAT | O_BINARY, Access_mode);
+	fd = dao_logsys_openfile(log, LSFILE_LABEL, O_TRUNC | O_RDWR | O_CREAT | O_BINARY, Access_mode);
 	if (fd < 0)
 		bail_out("Cannot create label");
 	
@@ -266,7 +266,7 @@ int logsys_copyconfig(char *cfgfile, char *sysname)
     {
 		/* Cannot copy the configuration, not a fatal error. */
 		if (!Quiet)
-			fprintf(stderr, "Warning: copy configuration file into system directory: %s\n", syserr_string(errno));
+			fprintf(stderr, "Warning: copy configuration file into system directory: %s\n", dao_syserr_string(errno));
 		return (1);
 	}
 	if ((from = fopen(cfgfile, "r")) == NULL)
@@ -376,7 +376,7 @@ void logsys_createsqlindexes(char *cfgfile, LogSystem *log)
 				bail_out("%s(%d): Malformed line: %s", the_filename, the_lineno, sqlindexname);
 			}
 			*cp = 0;
-			sqlindex->name = log_strdup(sqlindexname);
+			sqlindex->name = dao_log_strdup(sqlindexname);
 
 			/* split in fields names */
 			fieldname = ++cp;
@@ -391,7 +391,7 @@ void logsys_createsqlindexes(char *cfgfile, LogSystem *log)
 						bail_out("Out of memory");
 				}
 				*cp = '\0';
-				sqlindex->fields[nfields] = logsys_getfield(log,fieldname);
+				sqlindex->fields[nfields] = dao_logsys_getfield(log,fieldname);
 				if (sqlindex->fields[nfields] == NULL)
 				{
 					errno = 0;
@@ -401,7 +401,7 @@ void logsys_createsqlindexes(char *cfgfile, LogSystem *log)
 				fieldname = ++cp;
 			}
 			/* either last or only field in this SQL index */
-			sqlindex->fields[nfields] = logsys_getfield(log,fieldname);
+			sqlindex->fields[nfields] = dao_logsys_getfield(log,fieldname);
 			if (sqlindex->fields[nfields] == NULL)
 			{
 				errno = 0;

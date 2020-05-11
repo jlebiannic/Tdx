@@ -10,7 +10,7 @@
 
 	Routines useful (?) for debugging logsystem code.
 ========================================================================*/
-static char *version = "@(#)TradeXpress $Id: debug.c 47371 2013-10-21 13:58:37Z cdemory $";
+static char *version = "@(#)TradeXpress $Id: debug.c 55487 2020-05-06 08:56:27Z jlebiannic $";
 static char *uname = UNAME;
 extern char *liblogsystem_version;
 static char **lib = &liblogsystem_version;
@@ -22,11 +22,11 @@ static char **lib = &liblogsystem_version;
 #include <stdio.h>
 #include <sys/types.h>
 
-#include "logsystem.sqlite.h"
+#include "logsystem.dao.h"
 
-int sqlite_logentry_printfield(FILE *fp, LogEntry *entry, LogField *f, char *fmt);
+int dao_logentry_printfield(FILE *fp, LogEntry *entry, LogField *f, char *fmt);
 
-void sqlite_logsys_dumpheader(LogSystem *log)
+void dao_logsys_dumpheader(LogSystem *log)
 {
 	LogField *field;
 
@@ -38,7 +38,7 @@ void sqlite_logsys_dumpheader(LogSystem *log)
 	printf("\n");
 }
 
-void sqlite_logentry_dump(LogEntry *entry)
+void dao_logentry_dump(LogEntry *entry)
 {
 	LogSystem *log = entry->logsys;
 	LogField *field;
@@ -46,12 +46,12 @@ void sqlite_logentry_dump(LogEntry *entry)
 	for (field = log->label->fields; field->type; ++field)
     {
 		putchar(' ');
-		sqlite_logentry_printfield(stdout, entry, field, NULL);
+		dao_logentry_printfield(stdout, entry, field, NULL);
 	}
 	printf("\n");
 }
 
-void sqlite_logsys_dumplabel(LogLabel *label)
+void dao_logsys_dumplabel(LogLabel *label)
 {
 	printf("magic              0x%X\n", label->magic);
 	printf("version            %d\n", label->version);
@@ -69,7 +69,7 @@ void sqlite_logsys_dumplabel(LogLabel *label)
 	printf("datafile max       %d kB\n", label->recordsize * label->maxcount / 1024);
 }
 
-void sqlite_logsys_dumplabelfields(LogLabel *label)
+void dao_logsys_dumplabelfields(LogLabel *label)
 {
 	LogField *f;
 	int total_used = 0;
@@ -77,7 +77,7 @@ void sqlite_logsys_dumplabelfields(LogLabel *label)
 
 	for (f = label->fields; f->type; ++f)
     {
-		printf("%-13s %-7s %3d %3d ", f->name.string, sqlite_logfield_typename(f->type), f->offset, f->size);
+		printf("%-13s %-7s %3d %3d ", f->name.string, dao_logfield_typename(f->type), f->offset, f->size);
 		i = printf("%s", f->format.string);
 		while (i++ < 16)
         {

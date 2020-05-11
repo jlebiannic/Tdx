@@ -10,11 +10,11 @@
 #include "conf/local_config.h"
 #include "conf/copyright.h"
 COPYRIGHT()
-MODULE("@(#)TradeXpress $Id: logadd.c 55239 2019-11-19 13:50:31Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: logadd.c 55499 2020-05-07 16:25:38Z jlebiannic $")
 /*============================================================================
   Record all changes here and update the above string accordingly.
   3.00 25.01.95/JN	Adapted from 3.1.1 logadd
-  3.01 25.10.95/RV	Changed parameter order of logoperator_read
+  3.01 25.10.95/RV	Changed parameter order of dao_logoperator_read
   3.02 01.08.96/JN	INDEX/GENERATION are ignored when importing.
   4.00 13.10.98/KP	rls option
   4.01 10.07.02/CD	added -? option
@@ -35,13 +35,10 @@ MODULE("@(#)TradeXpress $Id: logadd.c 55239 2019-11-19 13:50:31Z sodifrance $")
 #include <unistd.h>
 #endif
 
-#include "logsystem/remote/logsysrem.h"
-#include "rlslib/rlslib.h"
 #include "translator/translator.h"
+#include "logsystem/lib/logsystem.definitions.h"
 
 static int import_it(LogSystem *log);
-
-extern int tr_useSQLiteLogsys;
 
 /* dummy variables */
 double tr_errorLevel = 0;
@@ -54,7 +51,6 @@ static char *input_name = "(stdin)";
 static int dispindex_flag = 0;
 static int dumpimport_flag = 0;
 static int importverbose_flag = 0;
-static int rls_flag = 1;
 static int import_rawmode = 0;
 static int logsys_useTransaction = 0;
 
@@ -71,7 +67,7 @@ void bail_out(char *fmt, ...)
 	va_end(ap);
 	if (errno)
 	{
-		fprintf(stderr, " (%d,%s)\n", errno, syserr_string(errno));
+		fprintf(stderr, " (%d,%s)\n", errno, dao_syserr_string(errno));
 	}
 	exit(1);
 }
@@ -122,16 +118,8 @@ int main(int argc, char **argv)
 
     tr_UseLocaleUTF8();
 
-    logsys_compability_setup();
+    dao_logsys_compability_setup();
 
-    /* only revelant it local mode 
-     * in rls, this is looked at server side */
-    if (getenv("USE_SQLITE_LOGSYS") != NULL)
-	{
-        tr_useSQLiteLogsys = atoi(getenv("USE_SQLITE_LOGSYS"));
-    } else {
-        tr_useSQLiteLogsys = 0;
-    }
 	cmd = argv[0];
 	opterr = 0;
     /* ---------------------------------------------------------------------- */
@@ -155,11 +143,7 @@ Valid options are:\n\
 	-V valuefile		read values from file\n\
 	-D dumpfile		import a dump\n\
 	-T			trace import\n\
-	-r			remote mode (with rls)\n\
-	-l			local mode (without rls)\n\
-	-O 			the base is an old legacy one\n\
-	-I 			the base is a  sqlite one\n\
-	-t			use transaction mode on sqlite base\n\
+	-t			use transaction mode on base\n\
 	-z 			raw for dump importing : write ALL informations as provided (including INDEX, CREATED ...)\n\
 ");
 			return 2;
@@ -168,19 +152,9 @@ Valid options are:\n\
 		case 's':
 			sysname = optarg;
 			break;
-		/* Specifies the accessed database is an old legacy one               */
-        case 'O' :
-            tr_useSQLiteLogsys = 0;
-			break;
-		/* Specifies the accessed database is an SQLite                       */
-        case 'I' :
-            tr_useSQLiteLogsys = 1;
-			break;
 		/* undocumented option                                                */
         case 't' :
-			if (!rls_flag){
-				logsys_useTransaction = 1;
-			}
+			logsys_useTransaction = 1;
 			break;
 		/* Print created index to stdout                                      */
 		case 'd':
@@ -188,7 +162,7 @@ Valid options are:\n\
 			break;
 		/* Insert an entry to values                                          */
 		case 'v':
-			logoperator_add(&logOperator, optarg);
+			dao_logoperator_add(&logOperator, optarg);
 			break;
 		/* Read values from file                                              */
 		case 'V':
@@ -199,7 +173,7 @@ Valid options are:\n\
 				perror_exit(optarg);
 			}
 		    }
-			logoperator_read(&logOperator,fp);
+			dao_logoperator_read(&logOperator,fp);
 			if (fp != stdin){
 				fclose(fp);
 			}
@@ -234,13 +208,6 @@ Valid options are:\n\
         case 'z': import_rawmode = 1;     break;
 		/* Trace import                                                       */
 		case 'T': importverbose_flag = 1; break;
-		/* Remote mode (with rls)                                             */
-		case 'r':
-			rls_flag = 1;
-			logsys_useTransaction = 0;
-			break;
-		/* Local mode (without rls)                                           */
-		case 'l': rls_flag = 0;           break;
 		}
 	}
     /* ---------------------------------------------------------------------- */
@@ -251,80 +218,38 @@ Valid options are:\n\
 	if (!sysname) {
 		fatal_exit("No system name given");
 	}
-	if (rls_flag){
-		if ((log = (LogSystem *) rls_open(sysname)) == NULL) {
-			perror_exit(sysname);
-		}
-	} else {
-		if ((log = logsys_open(sysname, LS_FAILOK)) == NULL) {
-			perror_exit(sysname);
-		}
 
-		if ((logsys_useTransaction == 1)
-		&&  (logsys_begin_transaction(log) == -1)) {
-			return 1;
-		}
-	}
-
-	if (rls_flag)
-    {
-		if (dumpimport_flag)
-        {
-			import_remote((struct rls *)log, stdin);
-		}
-		else
-        {
-			int idx;
-		
-			logsysrem_compileoperator((struct rls*) log, logOperator);
-
-			/*
-			 * Create a new entry in remote database.
-			 * The create a synthetic LogEntry for this.
-			 */
-			idx = rls_createnew((struct rls*) log);
-			if (!idx) {
-				perror_exit("Cannot write entry");
-			}
-			entry = calloc(1, sizeof(LogEntry));
-			entry->idx = idx;
-			entry->logsys = log;
-			entry->record = NULL;			
-
-			logentryrem_operate(entry, logOperator);
-
-			/*
-			 * Unlike local one, logentryrem_operate() applies changes
-			 * directly.
-			 *
-			 */
-
-			if (dispindex_flag) {
-				printf("%d\n", idx);	
-			}
-		}
-	} else {
-		if (dumpimport_flag) {
-			import_it(log);
-		} else {
-			logsys_compileoperator(log, logOperator);
-
-			if ((entry = logentry_new(log)) == NULL) {
-				perror_exit("Cannot write entry");
-			}
-			logentry_operate(entry, logOperator);
-
-			if (logentry_write(entry)) {
-				perror_exit("Cannot write entry");
-			}
-			if (dispindex_flag) {
-				printf("%d\n", logentry_getindex(entry));
-			}
-		}
+	if ((log = dao_logsys_open(sysname, LS_FAILOK)) == NULL) {
+		perror_exit(sysname);
 	}
 
 	if ((logsys_useTransaction == 1)
-	&&  (logsys_end_transaction(log) == -1)) {
+	&&  (dao_logsys_begin_transaction(log) == -1)) {
+		return 1;
+	}
+	
+
+	if (dumpimport_flag) {
+		import_it(log);
+	} else {
+		dao_logsys_compileoperator(log, logOperator);
+
+		if ((entry = dao_logentry_new(log)) == NULL) {
+			perror_exit("Cannot write entry");
+		}
+		dao_logentry_operate(entry, logOperator);
+
+		if (dao_logentry_write(entry)) {
+			perror_exit("Cannot write entry");
+		}
+		if (dispindex_flag) {
+			printf("%d\n", dao_logentry_getindex(entry));
+		}
+	}
+	
+
+	if ((logsys_useTransaction == 1)
+	&&  (dao_logsys_end_transaction(log) == -1)) {
 		return 1;
 	}
 	
@@ -369,7 +294,7 @@ static int import_it(LogSystem *log)
 		/* if the line begins with ---KEYINFO_BEGIN--- the following lines give field=value data */
 		if (EQ("---KEYINFO_BEGIN---"))
         {
-			entry = logentry_new(log);
+			entry = dao_logentry_new(log);
 			if (entry == NULL)
             {
 				if (importverbose_flag) {
@@ -378,7 +303,7 @@ static int import_it(LogSystem *log)
 				perror(log->sysname);
 				exit(4);
 			}
-			curidx = logentry_getindex(entry);
+			curidx = dao_logentry_getindex(entry);
 			state = 1;
 			if (importverbose_flag) {
 				fprintf(stderr, "\nI %d", curidx);
@@ -389,9 +314,9 @@ static int import_it(LogSystem *log)
 		/* if the line begins with ---KEYINFO_END--- end of KEYINFO bloc of data */
 		if (EQ("---KEYINFO_END---"))
         {
-			logentry_operate(entry, logop);
-			if ( ( import_rawmode && logentry_writeraw(entry) )
-              || logentry_write(entry)
+			dao_logentry_operate(entry, logop);
+			if ( ( import_rawmode && dao_logentry_writeraw(entry) )
+              || dao_logentry_write(entry)
                )
             {
 				if (importverbose_flag) {
@@ -400,8 +325,8 @@ static int import_it(LogSystem *log)
 				perror(log->sysname);
 				exit(5);
 			}
-			logentry_free(entry);
-			logoperator_free(logop);
+			dao_logentry_free(entry);
+			dao_logoperator_free(logop);
 			entry = NULL;
 			logop = NULL;
 			fgetbuf = fgets(buf, sizeof(buf), stdin);
@@ -484,7 +409,7 @@ static int import_it(LogSystem *log)
 				}
 				perror(path);
 				if (logsys_useTransaction == 1) {
-					logsys_end_transaction(log);
+					dao_logsys_end_transaction(log);
 				}
 				exit(1);
 			}
@@ -543,24 +468,11 @@ static int import_it(LogSystem *log)
 				*cp = 0;
 			}
 			
-			if (tr_useSQLiteLogsys == 1)
-			{
-				/* in raw mode, take the index given */
-				if (import_rawmode && strncmp(buf, "INDEX=",sizeof("INDEX")) == 0) {
-					curidx = atoi((const char *)(buf + sizeof("INDEX")));
-				}
-				logoperator_add(&logop, buf);
+			/* in raw mode, take the index given */
+			if (import_rawmode && strncmp(buf, "INDEX=",sizeof("INDEX")) == 0) {
+				curidx = atoi((const char *)(buf + sizeof("INDEX")));
 			}
-			else
-			{
-				/* -z inoperant in old legacy mode */
-				/* take care of throwing out generation information */
-				if (strncmp(buf, "INDEX=",      sizeof("INDEX"))
-				 && strncmp(buf, "GENERATION=", sizeof("GENERATION"))) {
-						logoperator_add(&logop, buf);
-				}
-				break;
-			}
+			dao_logoperator_add(&logop, buf);
 			break;
 		/*                                                                    */
         /* dead code : unreachable state  I guess                             */
@@ -589,7 +501,7 @@ static int import_it(LogSystem *log)
 
 	if (fp && fclose(fp)) {
 		if (logsys_useTransaction == 1) {
-			logsys_end_transaction(log);
+			dao_logsys_end_transaction(log);
 		}
 
 		perror(path);

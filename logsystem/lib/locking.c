@@ -10,7 +10,7 @@
 	Logsystem locking routines.
 ========================================================================*/
 #include "conf/config.h"
-MODULE("@(#)TradeXpress $Id: locking.c 47371 2013-10-21 13:58:37Z cdemory $")
+MODULE("@(#)TradeXpress $Id: locking.c 55487 2020-05-06 08:56:27Z jlebiannic $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 03.10.94/JN	Created.
@@ -22,7 +22,7 @@ MODULE("@(#)TradeXpress $Id: locking.c 47371 2013-10-21 13:58:37Z cdemory $")
 #include <fcntl.h>
 #include <sys/types.h>
 
-#include "logsystem.sqlite.h"
+#include "logsystem.dao.h"
 
 #ifdef MACHINE_WNT
 
@@ -45,7 +45,7 @@ MODULE("@(#)TradeXpress $Id: locking.c 47371 2013-10-21 13:58:37Z cdemory $")
 #define F_RDLCK  4
 #define F_WRLCK  5
 
-static sqlite_lock(LogSystem *log, int fd, int op, int type, long start, long length)
+static dao_lock(LogSystem *log, int fd, int op, int type, long start, long length)
 {
 	long savpos;
 	int rv, how, saverr;
@@ -94,7 +94,7 @@ static sqlite_lock(LogSystem *log, int fd, int op, int type, long start, long le
 
 #else /* Then use POSIX locks */
 
-static int sqlite_lock(LogSystem *log, int fd, int op, int type, int start, int length)
+static int dao_lock(LogSystem *log, int fd, int op, int type, int start, int length)
 {
 	int rv;
 	struct flock flock;
@@ -112,7 +112,7 @@ static int sqlite_lock(LogSystem *log, int fd, int op, int type, int start, int 
 
 /* See who is locking the logsystem.
  * 0 nobody, > 0 pid, -1 syserr. */
-int sqlite_log_getlocker(LogSystem *log)
+int dao_log_getlocker(LogSystem *log)
 {
 	struct flock flock;
 
@@ -134,22 +134,22 @@ int sqlite_log_getlocker(LogSystem *log)
 #endif /* POSIX locks */
 
 /* Single-record locking. */
-int sqlite_logentry_readlock(LogEntry *entry)
+int dao_logentry_readlock(LogEntry *entry)
 {
-	return (sqlite_logentry_lockrecord(entry, F_RDLCK));
+	return (dao_logentry_lockrecord(entry, F_RDLCK));
 }
 
-int sqlite_logentry_writelock(LogEntry *entry)
+int dao_logentry_writelock(LogEntry *entry)
 {
-	return (sqlite_logentry_lockrecord(entry, F_WRLCK));
+	return (dao_logentry_lockrecord(entry, F_WRLCK));
 }
 
-int sqlite_logentry_unlock(LogEntry *entry)
+int dao_logentry_unlock(LogEntry *entry)
 {
-	return (sqlite_logentry_lockrecord(entry, F_UNLCK));
+	return (dao_logentry_lockrecord(entry, F_UNLCK));
 }
 
-int sqlite_logentry_lockrecord(LogEntry *entry, int locktype)
+int dao_logentry_lockrecord(LogEntry *entry, int locktype)
 {
 	LogSystem *log = entry->logsys;
 
@@ -158,24 +158,24 @@ int sqlite_logentry_lockrecord(LogEntry *entry, int locktype)
 
 /* System level locking (whole logsystem). */
 
-int sqlite_logsys_readlock(LogSystem *log)
+int dao_logsys_readlock(LogSystem *log)
 {
-	return (sqlite_logsys_locksystem(log, F_RDLCK));
+	return (dao_logsys_locksystem(log, F_RDLCK));
 }
 
-int sqlite_logsys_writelock(LogSystem *log)
+int dao_logsys_writelock(LogSystem *log)
 {
-	return (sqlite_logsys_locksystem(log, F_WRLCK));
+	return (dao_logsys_locksystem(log, F_WRLCK));
 }
 
-int sqlite_logsys_unlock(LogSystem *log)
+int dao_logsys_unlock(LogSystem *log)
 {
-	return (sqlite_logsys_locksystem(log, F_UNLCK));
+	return (dao_logsys_locksystem(log, F_UNLCK));
 }
 
-int sqlite_logsys_locksystem(LogSystem *log, int locktype)
+int dao_logsys_locksystem(LogSystem *log, int locktype)
 {
-	return (sqlite_lock(log, log->datafd, F_SETLKW, locktype, 0, 0));
+	return (dao_lock(log, log->datafd, F_SETLKW, locktype, 0, 0));
 }
 
 /*
@@ -194,9 +194,9 @@ int sqlite_logsys_locksystem(LogSystem *log, int locktype)
  * In any case, proceeding after failure is questionable at best.
  */
 
-int sqlite_logfd_readlock(int fd)
+int dao_logfd_readlock(int fd)
 {
-	if (sqlite_lock(NULL, fd, F_SETLKW, F_RDLCK, 0, 1))
+	if (dao_lock(NULL, fd, F_SETLKW, F_RDLCK, 0, 1))
     {
 		perror("readlock");
 		exit(1);
@@ -204,9 +204,9 @@ int sqlite_logfd_readlock(int fd)
     return 0;
 }
 
-int sqlite_logfd_writelock(int fd)
+int dao_logfd_writelock(int fd)
 {
-	if (sqlite_lock(NULL, fd, F_SETLKW, F_WRLCK, 0, 1))
+	if (dao_lock(NULL, fd, F_SETLKW, F_WRLCK, 0, 1))
     {
 		perror("writelock");
 		exit(1);
@@ -214,9 +214,9 @@ int sqlite_logfd_writelock(int fd)
     return 0;
 }
 
-int sqlite_logfd_unlock(int fd)
+int dao_logfd_unlock(int fd)
 {
-	if (sqlite_lock(NULL, fd, F_SETLKW, F_UNLCK, 0, 1))
+	if (dao_lock(NULL, fd, F_SETLKW, F_UNLCK, 0, 1))
     {
 		perror("unlock");
 		exit(1);
@@ -224,11 +224,11 @@ int sqlite_logfd_unlock(int fd)
     return 0;
 }
 
-int sqlite_logsys_cleanup_lock(LogSystem *log)
+int dao_logsys_cleanup_lock(LogSystem *log)
 {
 	int fd;
 
-	fd = sqlite_logsys_openfile(log, LSFILE_CLEANLOCK, O_RDWR | O_CREAT, 0644);
+	fd = dao_logsys_openfile(log, LSFILE_CLEANLOCK, O_RDWR | O_CREAT, 0644);
 	if (fd < 0)
     {
 		perror("cleanup lock, open");
@@ -236,7 +236,7 @@ int sqlite_logsys_cleanup_lock(LogSystem *log)
 	}
 	log->cleanupfd = fd;
 
-	if (sqlite_lock(log, fd, F_SETLKW, F_WRLCK, 0, 1))
+	if (dao_lock(log, fd, F_SETLKW, F_WRLCK, 0, 1))
     {
 		perror("cleanup lock, lock");
 		exit(1);
@@ -244,11 +244,11 @@ int sqlite_logsys_cleanup_lock(LogSystem *log)
 	return (0);
 }
 
-int sqlite_logsys_cleanup_lock_nonblock(LogSystem *log)
+int dao_logsys_cleanup_lock_nonblock(LogSystem *log)
 {
 	int fd;
 
-	fd = sqlite_logsys_openfile(log, LSFILE_CLEANLOCK, O_RDWR | O_CREAT, 0644);
+	fd = dao_logsys_openfile(log, LSFILE_CLEANLOCK, O_RDWR | O_CREAT, 0644);
 	if (fd < 0)
     {
 		perror("cleanup lock nonblock, open");
@@ -256,7 +256,7 @@ int sqlite_logsys_cleanup_lock_nonblock(LogSystem *log)
 	}
 	log->cleanupfd = fd;
 
-	if (sqlite_lock(log, fd, F_SETLK, F_WRLCK, 0, 1) == 0)
+	if (dao_lock(log, fd, F_SETLK, F_WRLCK, 0, 1) == 0)
     {
 		/* Got the lock. */
 		return (0);
@@ -270,12 +270,12 @@ int sqlite_logsys_cleanup_lock_nonblock(LogSystem *log)
 	exit(1);
 }
 
-int sqlite_logsys_cleanup_unlock(LogSystem *log)
+int dao_logsys_cleanup_unlock(LogSystem *log)
 {
 	if (close(log->cleanupfd) == 0)
 		return (0);
 
-	sqlite_logsys_warning(log, "cleanup unlock: %s", syserr_string(errno));
+	dao_logsys_warning(log, "cleanup unlock: %s", dao_syserr_string(errno));
 	return (-1);
 }
 

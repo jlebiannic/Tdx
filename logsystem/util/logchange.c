@@ -31,9 +31,8 @@
 #endif
 
 extern int  errno;
-extern int tr_useSQLiteLogsys;
 
-#include "logsystem/lib/logsystem.h"
+#include "logsystem/lib/logsystem.dao.h"
 #include "translator/translator.h"
 
 static char *cmd;
@@ -51,7 +50,7 @@ void bail_out(char *fmt, ...)
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
 	if (errno){
-		fprintf(stderr, " (%d,%s)\n", errno, syserr_string(errno));
+		fprintf(stderr, " (%d,%s)\n", errno, dao_syserr_string(errno));
 	}
 	exit(1);
 }
@@ -96,16 +95,7 @@ main(int argc, char **argv)
 
     tr_UseLocaleUTF8();
 
-    logsys_compability_setup();
-
-    /* only revelant it local mode 
-     * in rls, this is looked at server side */
-    if (getenv("USE_SQLITE_LOGSYS") != NULL){
-        tr_useSQLiteLogsys = atoi(getenv("USE_SQLITE_LOGSYS"));
-		}
-    else{
-        tr_useSQLiteLogsys = 0;
-		}
+    dao_logsys_compability_setup();
 
 	cmd = argv[0];
 	opterr = 0;
@@ -126,19 +116,11 @@ Valid options are:\n\
 	-F filterfile		read filter from file\n\
 	-v 'name op value'	insert an entry to values\n\
 	-V valuefile		read values from file\n\
-	-O 			the base is an old legacy one\n\
-	-I 			the base is a  sqlite one\n\
-	-t			use transaction mode on sqlite base\n\
+	-t			use transaction mode on base\n\
 ");
 			exit (2);
 		case 's':
 			sysname = optarg;
-			break;
-        case 'O' :
-            tr_useSQLiteLogsys = 0;
-			break;
-        case 'I' :
-            tr_useSQLiteLogsys = 1;
 			break;
         case 't' :
 			logsys_useTransaction = 1;
@@ -151,7 +133,7 @@ Valid options are:\n\
 
 		case 'f':
 			/* Add one field into filter. */
-			logfilter_add(&logFilter, optarg);
+			dao_logfilter_add(&logFilter, optarg);
 			break;
 		case 'F':
 			/* Read filter from file. */
@@ -162,7 +144,7 @@ Valid options are:\n\
 				perror_exit(optarg);
 				}
 
-			logfilter_read(&logFilter, fp);
+			dao_logfilter_read(&logFilter, fp);
 			if (fp != stdin){
 				fclose(fp);
 				}
@@ -170,7 +152,7 @@ Valid options are:\n\
 
 		case 'v':
 			/* Add one operator. */
-			logoperator_add(&logOperator, optarg);
+			dao_logoperator_add(&logOperator, optarg);
 			break;
 		case 'V':
 			/* Read ops from file. */
@@ -186,7 +168,7 @@ Valid options are:\n\
                 }
             }
 
-			logoperator_read(&logOperator, fp);
+			dao_logoperator_read(&logOperator, fp);
 			if (fp != stdin){
 				fclose(fp);
 				}
@@ -201,33 +183,33 @@ Valid options are:\n\
 		fatal_exit("No system name given", 0);
 		}
 
-	if ((log = logsys_open(sysname, LS_FAILOK)) == NULL){
+	if ((log = dao_logsys_open(sysname, LS_FAILOK)) == NULL){
 		perror_exit(sysname);
 		}
 
 	if ((logsys_useTransaction == 1)
-	&&  (logsys_begin_transaction(log) == -1)){
+	&&  (dao_logsys_begin_transaction(log) == -1)){
 		exit(1);
 		}
 
-	logsys_compileoperator(log, logOperator);
+	dao_logsys_compileoperator(log, logOperator);
 
 	if (absIndex)
     {
-		if ((entry = logentry_readindex(log, absIndex)) == NULL)
+		if ((entry = dao_logentry_readindex(log, absIndex)) == NULL)
 		{
 			if (logsys_useTransaction == 1){
-				logsys_begin_transaction(log);
+				dao_logsys_begin_transaction(log);
 				}
 			fatal_exit("Entry %d is unreadable", absIndex);
 		}
 
-		logentry_operate(entry, logOperator);
+		dao_logentry_operate(entry, logOperator);
 
-		if (logentry_write(entry))
+		if (dao_logentry_write(entry))
 		{
 			if (logsys_useTransaction == 1){
-				logsys_begin_transaction(log);
+				dao_logsys_begin_transaction(log);
 				}
 			fatal_exit("Cannot rewrite entry %d", absIndex);
 		}
@@ -236,14 +218,14 @@ Valid options are:\n\
     {
 		/*YLI(CG) 13.03.13 TX-460 
 		nunk = 0: field exists */
-		nunk = logsys_compilefilter(log, logFilter);
+		nunk = dao_logsys_compilefilter(log, logFilter);
 		if (nunk != 0)
         {
 			end = &logFilter->filters[logFilter->filter_count];
 			for (g = logFilter->filters; g < end; ++g)
             {
 				g->field = NULL;
-				g->field = logsys_getfield(log, g->name);
+				g->field = dao_logsys_getfield(log, g->name);
 				if (!g->field){
 					fprintf (stderr, "Error: Field %s does not exist\n",g->name);
 					}
@@ -251,11 +233,11 @@ Valid options are:\n\
 			exit(0);
 		}
 		/*End*/
-		logsys_operatebyfilter(log, logFilter, logOperator);
+		dao_logsys_operatebyfilter(log, logFilter, logOperator);
 	}
 
 	if ((logsys_useTransaction == 1)
-	&&  (logsys_end_transaction(log) == -1)){
+	&&  (dao_logsys_end_transaction(log) == -1)){
 		exit(1);
 		}
 

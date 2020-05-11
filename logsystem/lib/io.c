@@ -10,14 +10,14 @@
 	Reading and writing logsystem stuff.
 ========================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: io.c 55444 2020-03-30 08:18:27Z jlebiannic $")
+MODULE("@(#)TradeXpress $Id: io.c 55495 2020-05-06 14:41:40Z jlebiannic $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 03.10.94/JN	Created.
   3.01 27.04.95/JN	mmap added to readraw.
   3.02 24.01.96/JN	Solaris. MAP_FILE undef.
   3.04 03.04.96/JN	Clustering reads.
-  3.05 09.11.05/CD  Set correct errorno when index not found in logentry_readindex
+  3.05 09.11.05/CD  Set correct errorno when index not found in dao_logentry_readindex
   3.06 18.05.17/TCE(CG) EI-325 correct many memory leak	
   Jira TX-3143 19.11.2019 - Olivier REMAUD - Passage au 64 bits
 ========================================================================*/
@@ -29,9 +29,8 @@ MODULE("@(#)TradeXpress $Id: io.c 55444 2020-03-30 08:18:27Z jlebiannic $")
 #include <string.h>
 
 #include "private.h"
-#include "logsystem.sqlite.h"
+#include "logsystem.dao.h"
 #include "logsystem.h" /* adding for BugZ_9833 */
-#include "old_legacy/logsystem.old_legacy.h"
 
 #ifndef MACHINE_WNT
 #include <sys/uio.h>
@@ -41,7 +40,7 @@ MODULE("@(#)TradeXpress $Id: io.c 55444 2020-03-30 08:18:27Z jlebiannic $")
 #include "port.h"
 #include "data-access/commons/daoFactory.h"
 #include "tr_externals.h"
-#include "dastub.h"
+#include "daservice.h"
 
 
 #ifdef MAXIOV
@@ -54,29 +53,29 @@ MODULE("@(#)TradeXpress $Id: io.c 55444 2020-03-30 08:18:27Z jlebiannic $")
 #define CLUSTER_MAX 16
 #endif
 
-int sqlite_loglabel_free(LogLabel *lab);
+int dao_loglabel_free(LogLabel *lab);
 int old_legacy_logsys_warning(LogSystem *ls, char *fmt, ...);
 
-TimeStamp sqlite_log_curtime()
+TimeStamp dao_log_curtime()
 {
 	return ((TimeStamp) time(NULL));
 }
 
 /* Value for sqlite busy handler timeout
  * which is used when a request because the database is locked */
-/* define SQLITE_REQUEST_TIMEOUT 60000 */
+/* define dao_REQUEST_TIMEOUT 60000 */
 /* BugZ_9833 : set to 8 mn */
-#define SQLITE_REQUEST_TIMEOUT 480000
+#define dao_REQUEST_TIMEOUT 480000
 
 /* BugZ_9833: add timeout setting                          */ 
 /*---------------------------------------------------------------------------------------------*/
-/* Gets timeout value either from SQLITE_TIMEOUT env value */
-/* or SQLITE_REQUEST_TIMEOUT default value                 */
+/* Gets timeout value either from dao_TIMEOUT env value */
+/* or dao_REQUEST_TIMEOUT default value                 */
 static int  getSyslogTimeout()
 {
-  int ret = SQLITE_REQUEST_TIMEOUT;
+  int ret = dao_REQUEST_TIMEOUT;
   int tmp_val;
-  char *timeout_env = getenv("SQLITE_TIMEOUT");
+  char *timeout_env = getenv("dao_TIMEOUT");
   
   if (timeout_env)
   {
@@ -91,7 +90,7 @@ static char* getDumpFileName()
   static char s_buf[1000];
   time_t      now;
   struct tm  *ts;
-  char       *dumpErrFlag = getenv("SQLITE_DUMP_ERR");
+  char       *dumpErrFlag = getenv("dao_DUMP_ERR");
   char       *ret = NULL;
 
   if (dumpErrFlag)
@@ -143,7 +142,7 @@ void logsys_dump(void* log_data, char log_type, char* msg, char* __file__, int _
 		dbName = strcat(dbName, tmp);
 		toFree = 1;
 	} else {
-		dbName = sqlite_logsys_filepath(log, tmp);
+		dbName = dao_logsys_filepath(log, tmp);
 	}  
     /* always open dump file in create and append mode */
     if (fp = fopen(dbName, "a+w+")) /* TODO ORD : CHECK THIS ! (was sqlite3_open) */
@@ -152,7 +151,7 @@ void logsys_dump(void* log_data, char log_type, char* msg, char* __file__, int _
       now = time(NULL);
  
       /* Default format */
-      printFormat =  logsys_defaultformat(log);
+      printFormat =  dao_logsys_defaultformat(log);
       printFormat->separator = ";";    
 
       /* Format time, "dd..mm.yyyy HH:MM:SS */
@@ -181,7 +180,7 @@ void logsys_dump(void* log_data, char log_type, char* msg, char* __file__, int _
         fwrite(";", sizeof(char), 1, fp);
   
         /* print log entry data */
-        sqlite_logentry_printbyformat(fp, entry, printFormat);
+        dao_logentry_printbyformat(fp, entry, printFormat);
       }
       else
       {
@@ -197,139 +196,142 @@ void logsys_dump(void* log_data, char log_type, char* msg, char* __file__, int _
 
 /*---------------------------------------------------------------------------------------------*/
 
-int sqlite_logsys_opendata(LogSystem *log)
+int dao_logsys_opendata(LogSystem *log)
 {
-    char *errMsg = NULL;
-	char *dbName; 
-	int toFree = 0;
-	int ret;
-
-    /* already opened */
-	if ((log->datafd > 0) && (log->datadb_handle != 0))
-		return (0);
-
-    /* checks if database file exist */
-	if (log->datafd <= 0) 
-    {
-		/* EI-325 if size > 1024, manually allocate memory */
-		if ( (strlen(log->sysname) + strlen(LSFILE_SQLITE) ) > 1024 )	{
-			dbName = malloc(strlen(log->sysname) + strlen(LSFILE_SQLITE) +1 );
-			dbName = strcpy(dbName,log->sysname);	
-			dbName = strcat(dbName, LSFILE_SQLITE);
-			toFree = 1;
-		} else {
-			dbName = sqlite_logsys_filepath(log, LSFILE_SQLITE);
-		}
-		
-        log->datafd = open(dbName, log->open_mode | O_BINARY, 0644);
-        if (log->datafd <= 0)
-        {
-            sqlite_logsys_warning(log, "Cannot open datafile: %s", sqlite_syserr_string(errno));
-            if (errno == ENOENT) /* do not even exist */
-            {
-                /* try to see if LSFILE_DATA do exist in case we have an old legacy base */
-                int testfd = open(old_legacy_logsys_filepath(log, LSFILE_DATA), O_RDONLY);
-                if ((testfd >= 0) || (errno != ENOENT))
-                {
-                    if (testfd >= 0)
-                        close(testfd);
-                    old_legacy_logsys_warning(log, "You have a %s file present : maybe you should try and use old legacy mode", LSFILE_DATA);
-                }    
-            }
-			/* EI-325 desallocate memory manually for string > 1024 */
-			if (toFree) { free(dbName); toFree = 0 ;}
-            return (-1);
-        }
-		/* EI-325 desallocate memory mannually for string > 1024 */
-		if (toFree) { free(dbName); toFree = 0 ;}
-        close(log->datafd);
-    }
-    
-    /* if file exists then open database itself
-     * this avoids sqlite3_open create an unwilling empty database */
-    /*EI-325 : we have to check return code to see if resources have really been released! */
-	ret = sqlite3_close(log->datadb_handle);
-	if ( ret != SQLITE_OK ) 
-	{
-		int cpt = 0;
-		sqlite3_busy_timeout(log->datadb_handle, getSyslogTimeout());
-		while ( ret == SQLITE_BUSY && cpt < 4 ) {
-			ret = sqlite3_close(log->datadb_handle);
-			sqlite3_busy_timeout(log->datadb_handle, getSyslogTimeout());
-			cpt++;			
-		}
-		if (cpt == 4 && ret != SQLITE_OK){
-			sqlite_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
-		} 		
-	}	
+//     char *errMsg = NULL;
+// 	char *dbName; 
+// 	int toFree = 0;
+// 	int ret;
+// 
+//     /* already opened */
+ 	if ((log->datafd > 0) && (log->datadb_handle != 0))
+ 		return (0);
+	log->datafd=1;
+	log->datadb_handle=1;
 	
-    log->datadb_handle = 0;
-	
-	/* EI-325 if size > 1024, manually allocate memory */
-	if ( (strlen(log->sysname) + strlen(LSFILE_SQLITE) ) > 1024 )	{
-		dbName = malloc(strlen(log->sysname) + strlen(LSFILE_SQLITE) +1 );
-		dbName = strcpy(dbName,log->sysname);	
-		dbName = strcat(dbName, LSFILE_SQLITE);
-		toFree = 1;
-	} else {
-		dbName = sqlite_logsys_filepath(log, LSFILE_SQLITE);
-	}
-    if (sqlite3_open(dbName, &log->datadb_handle) != SQLITE_OK)
-    {
-		/* EI-325 desallocate memory mannually for string > 1024 */
-		if (toFree) { free(dbName); toFree = 0 ;}
-        sqlite_logsys_warning(log, "Cannot open database: %s", sqlite3_errmsg(log->datadb_handle));
-		/* EI-325 try to close correctly th database handler in case it's still used */	
-        ret = sqlite3_close(log->datadb_handle);
-		sqlite3_busy_timeout(log->datadb_handle, getSyslogTimeout());
-		if ( ret != SQLITE_OK ) 
-		{
-			int cpt = 0;
-			while ( ret == SQLITE_BUSY && cpt < 4 ) {
-				ret = sqlite3_close(log->datadb_handle);
-				sqlite3_busy_timeout(log->datadb_handle, getSyslogTimeout());	
-				cpt++;				
-			}
-			if (cpt == 4 && ret != SQLITE_OK){
-				sqlite_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
-			} 		
-		}	
-        log->datadb_handle = 0;
-        return (-1);
-    }
-	/* EI-325 desallocate memory mannually for string > 1024 */
-	if (toFree) { free(dbName); toFree = 0 ;}
-    /* process must wait before returning BUSY without looping forever. */
-    sqlite3_busy_timeout(log->datadb_handle, getSyslogTimeout()); /* BugZ_9833: getSyslogTimeout call adding */
-
-    /* external program trigger setup : cleanup, remove, add, threshold */
-    if (logsys_trigger_setup(log,&errMsg) != 0)
-    {
-        sqlite_logsys_warning(log, "Cannot setup triggers: %s", sqlite3_errmsg(log->datadb_handle));
-        /* EI-325 try to close correctly th database handler in case it's still used */
-        ret = sqlite3_close(log->datadb_handle);
-		if ( ret != SQLITE_OK ) 
-		{
-			int cpt = 0;
-			sqlite3_busy_timeout(log->datadb_handle, getSyslogTimeout());
-			while ( ret == SQLITE_BUSY && cpt < 4 ) {
-				ret = sqlite3_close(log->datadb_handle);
-				sqlite3_busy_timeout(log->datadb_handle, getSyslogTimeout());
-				cpt++;			
-			}
-			if (cpt == 4 && ret != SQLITE_OK){
-				sqlite_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
-			} 		
-		}
-        log->datadb_handle = 0;
-        return (-1);
-    }
+// 
+//     /* checks if database file exist */
+// 	if (log->datafd <= 0) 
+//     {
+// 		/* EI-325 if size > 1024, manually allocate memory */
+// 		if ( (strlen(log->sysname) + strlen(LSFILE_SQLITE) ) > 1024 )	{
+// 			dbName = malloc(strlen(log->sysname) + strlen(LSFILE_SQLITE) +1 );
+// 			dbName = strcpy(dbName,log->sysname);	
+// 			dbName = strcat(dbName, LSFILE_SQLITE);
+// 			toFree = 1;
+// 		} else {
+// 			dbName = dao_logsys_filepath(log, LSFILE_SQLITE);
+// 		}
+// 		
+//         log->datafd = open(dbName, log->open_mode | O_BINARY, 0644);
+//         if (log->datafd <= 0)
+//         {
+//             dao_logsys_warning(log, "Cannot open datafile: %s", dao_syserr_string(errno));
+//             if (errno == ENOENT) /* do not even exist */
+//             {
+//                 /* try to see if LSFILE_DATA do exist in case we have an old legacy base */
+//                 int testfd = open(old_legacy_logsys_filepath(log, LSFILE_DATA), O_RDONLY);
+//                 if ((testfd >= 0) || (errno != ENOENT))
+//                 {
+//                     if (testfd >= 0)
+//                         close(testfd);
+//                     old_legacy_logsys_warning(log, "You have a %s file present : maybe you should try and use old legacy mode", LSFILE_DATA);
+//                 }    
+//             }
+// 			/* EI-325 desallocate memory manually for string > 1024 */
+// 			if (toFree) { free(dbName); toFree = 0 ;}
+//             return (-1);
+//         }
+// 		/* EI-325 desallocate memory mannually for string > 1024 */
+// 		if (toFree) { free(dbName); toFree = 0 ;}
+//         close(log->datafd);
+//     }
+//     
+//     /* if file exists then open database itself
+//      * this avoids sqlite3_open create an unwilling empty database */
+//     /*EI-325 : we have to check return code to see if resources have really been released! */
+// 	ret = sqlite3_close(log->datadb_handle);
+// 	if ( ret != SQLITE_OK ) 
+// 	{
+// 		int cpt = 0;
+// 		sqlite3_busy_timeout(log->datadb_handle, getSyslogTimeout());
+// 		while ( ret == SQLITE_BUSY && cpt < 4 ) {
+// 			ret = sqlite3_close(log->datadb_handle);
+// 			sqlite3_busy_timeout(log->datadb_handle, getSyslogTimeout());
+// 			cpt++;			
+// 		}
+// 		if (cpt == 4 && ret != SQLITE_OK){
+// 			dao_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
+// 		} 		
+// 	}	
+// 	
+//     log->datadb_handle = 0;
+// 	
+// 	/* EI-325 if size > 1024, manually allocate memory */
+// 	if ( (strlen(log->sysname) + strlen(LSFILE_SQLITE) ) > 1024 )	{
+// 		dbName = malloc(strlen(log->sysname) + strlen(LSFILE_SQLITE) +1 );
+// 		dbName = strcpy(dbName,log->sysname);	
+// 		dbName = strcat(dbName, LSFILE_SQLITE);
+// 		toFree = 1;
+// 	} else {
+// 		dbName = dao_logsys_filepath(log, LSFILE_SQLITE);
+// 	}
+//     if (sqlite3_open(dbName, &log->datadb_handle) != SQLITE_OK)
+//     {
+// 		/* EI-325 desallocate memory mannually for string > 1024 */
+// 		if (toFree) { free(dbName); toFree = 0 ;}
+//         dao_logsys_warning(log, "Cannot open database: %s", sqlite3_errmsg(log->datadb_handle));
+// 		/* EI-325 try to close correctly th database handler in case it's still used */	
+//         ret = sqlite3_close(log->datadb_handle);
+// 		sqlite3_busy_timeout(log->datadb_handle, getSyslogTimeout());
+// 		if ( ret != SQLITE_OK ) 
+// 		{
+// 			int cpt = 0;
+// 			while ( ret == SQLITE_BUSY && cpt < 4 ) {
+// 				ret = sqlite3_close(log->datadb_handle);
+// 				sqlite3_busy_timeout(log->datadb_handle, getSyslogTimeout());	
+// 				cpt++;				
+// 			}
+// 			if (cpt == 4 && ret != SQLITE_OK){
+// 				dao_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
+// 			} 		
+// 		}	
+//         log->datadb_handle = 0;
+//         return (-1);
+//     }
+// 	/* EI-325 desallocate memory mannually for string > 1024 */
+// 	if (toFree) { free(dbName); toFree = 0 ;}
+//     /* process must wait before returning BUSY without looping forever. */
+//     sqlite3_busy_timeout(log->datadb_handle, getSyslogTimeout()); /* BugZ_9833: getSyslogTimeout call adding */
+// 
+//     /* external program trigger setup : cleanup, remove, add, threshold */
+//     if (logsys_trigger_setup(log,&errMsg) != 0)
+//     {
+//         dao_logsys_warning(log, "Cannot setup triggers: %s", sqlite3_errmsg(log->datadb_handle));
+//         /* EI-325 try to close correctly th database handler in case it's still used */
+//         ret = sqlite3_close(log->datadb_handle);
+// 		if ( ret != SQLITE_OK ) 
+// 		{
+// 			int cpt = 0;
+// 			sqlite3_busy_timeout(log->datadb_handle, getSyslogTimeout());
+// 			while ( ret == SQLITE_BUSY && cpt < 4 ) {
+// 				ret = sqlite3_close(log->datadb_handle);
+// 				sqlite3_busy_timeout(log->datadb_handle, getSyslogTimeout());
+// 				cpt++;			
+// 			}
+// 			if (cpt == 4 && ret != SQLITE_OK){
+// 				dao_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
+// 			} 		
+// 		}
+//         log->datadb_handle = 0;
+//         return (-1);
+//     }
+//    
+// 	sqlite3_free(errMsg);
    
-	sqlite3_free(errMsg);
-   
-	sqlite_exec_at_open(log);
+	dao_exec_at_open(log);
 
-    sqlite_debug_logsys_warning(log, "OPEN BASE : %d/%d", log->datafd, log->datadb_handle);
+    dao_debug_logsys_warning(log, "OPEN BASE : %s", log->sysname);
 
     /* everything is ok */
     return 0;
@@ -338,20 +340,20 @@ int sqlite_logsys_opendata(LogSystem *log)
 /* Read a record from datafile.
  * Returned entry is allocated here, caller must free when done.
  * Nothing locked. */ 
-LogEntry * sqlite_logentry_readindex(LogSystem *log, LogIndex idx)
+LogEntry * dao_logentry_readindex(LogSystem *log, LogIndex idx)
 {
 	LogEntry *entry;
 
-	entry = sqlite_logentry_alloc_skipclear(log, idx);
+	entry = dao_logentry_alloc_skipclear(log, idx);
 
-	// Jira TX-3199 DAO: stub
-	// if (log_sqlitereadbuf(entry) < 1)
-	if (dao_logentry_findOne(entry) < 1)
+	// Jira TX-3199 DAO
+	// if (log_daoreadbuf(entry) < 1)
+	if (Service_findEntry(entry) < 1)
     {
         /*  0 no entries
          * -1 an error appened */
 		errno = ENOENT; /* 3.05/CD added correct errno */
-		sqlite_logentry_free(entry);
+		dao_logentry_free(entry);
 		return (NULL);
 	}
 
@@ -359,18 +361,18 @@ LogEntry * sqlite_logentry_readindex(LogSystem *log, LogIndex idx)
 }
 
 /*JRE 06.15 BG-81*/
-LogEntryEnv * sqlite_logentry_readindex_env(LogSystem *log, LogIndexEnv idx)
+LogEntryEnv * dao_logentry_readindex_env(LogSystem *log, LogIndexEnv idx)
 {
 	LogEntryEnv *entry;
 
-	entry = sqlite_logentry_alloc_env(log, idx);
+	entry = dao_logentry_alloc_env(log, idx);
 
-	if (log_sqlitereadbuf_env(entry) < 1)
+	if (log_daoreadbuf_env(entry) < 1)
     {
         /*  0 no entries
          * -1 an error appened */
 		errno = ENOENT; /* 3.05/CD added correct errno */
-		sqlite_logentryenv_free(entry);
+		dao_logentryenv_free(entry);
 		entry = NULL;
 	}
 
@@ -379,23 +381,23 @@ LogEntryEnv * sqlite_logentry_readindex_env(LogSystem *log, LogIndexEnv idx)
 /*End JRE*/
 
 /* Now we have only one index so method is duplicate */
-LogEntry * sqlite_logentry_readraw(LogSystem *log, LogIndex idx)
+LogEntry * dao_logentry_readraw(LogSystem *log, LogIndex idx)
 {
-	return sqlite_logentry_readindex(log,idx);
+	return dao_logentry_readindex(log,idx);
 }
 
 /* Write a record to database.
  * Entry is NOT free'ed.
  * Nothing locked.
  * Record updated before write. */
-int sqlite_logentry_write(LogEntry *entry)
+int dao_logentry_write(LogEntry *entry)
 {
 	/* overridden every time and modifications from user get silently lost. */
-	sqlite_logentry_settimebyname(entry,"MODIFIED",sqlite_log_curtime());
+	dao_logentry_settimebyname(entry,"MODIFIED",dao_log_curtime());
 
 	// Jira TX-3199 DAO: stub
-	//if (log_sqlitewritebuf(entry,0))
-	if (dao_logentry_update(entry, 0))
+	//if (log_daowritebuf(entry,0))
+	if (Service_updateEntry(entry, 0))
 		return (-2);
 
 	return (0);
@@ -405,47 +407,46 @@ int sqlite_logentry_write(LogEntry *entry)
  * Entry is NOT free'ed.
  * Nothing locked.
  * Record is NOT updated before write. */
-int sqlite_logentry_writeraw(LogEntry *entry)
+int dao_logentry_writeraw(LogEntry *entry)
 {
 	// Jira TX-3199 DAO: stub
-	// if (log_sqlitewritebuf(entry,1))
-	if (dao_logentry_update(entry, 1))
+	// if (log_daowritebuf(entry,1))
+	if (Service_updateEntry(entry, 1))
 		return (-2);
 
 	return (0);
 }
 
-LogSystem * sqlite_logsys_open(char *sysname, int flags)
+LogSystem * dao_logsys_open(char *sysname, int flags)
 {
 	LogSystem *log;
 
-	sqlite_logsys_compability_setup(); 
+	dao_logsys_compability_setup(); 
 	/* The LOGSYS_EXT_IS_DIR was set there... */
 
-	log = sqlite_logsys_alloc(sysname);
-	if (tr_useDao) {
-		// Jira TX-3199 DAO: création du dao correspondant à la valeur de tr_useDao
-		log->dao = daoFactory_create(tr_useDao);
-	}
+	log = dao_logsys_alloc(sysname);
+	// Jira TX-3199 DAO: création du dao correspondant à la valeur de 1
+	log->dao = daoFactory_create(1);
+	
 
 	log->walkidx = 1;
 	log->open_mode = (flags & LS_READONLY) ? O_RDONLY : O_RDWR;
 
-	if (sqlite_logsys_readlabel(log))
+	if (dao_logsys_readlabel(log))
     {
 		if (flags & LS_FAILOK)
         {
-			sqlite_logsys_free(log);
+			dao_logsys_free(log);
 			return (NULL);
 		}
-		fprintf(stderr, "Cannot open logsystem %s: %s\n", sysname, sqlite_syserr_string(errno));
+		fprintf(stderr, "Cannot open logsystem %s: %s\n", sysname, dao_syserr_string(errno));
 		exit(1);
 	}
 
 	return (log);
 }
 
-void sqlite_logsys_close(LogSystem *log)
+void dao_logsys_close(LogSystem *log)
 {
 	int ret = 0;
 	if (log->datadb_handle != 0)
@@ -462,7 +463,7 @@ void sqlite_logsys_close(LogSystem *log)
 				cpt++;			
 			}
 			if (cpt == 4 && ret != SQLITE_OK){
-				sqlite_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
+				dao_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
 			} 		
 		}
 		log->datadb_handle = 0;
@@ -470,48 +471,48 @@ void sqlite_logsys_close(LogSystem *log)
 	if (log->labelfd >= 0)
 		close(log->labelfd);
 	if (log->label)
-		sqlite_loglabel_free(log->label);
-	sqlite_logsys_free(log);
+		dao_loglabel_free(log->label);
+	dao_logsys_free(log);
 }
 
-int sqlite_logsys_readlabel(LogSystem *log)
+int dao_logsys_readlabel(LogSystem *log)
 {
 	struct stat st;
 	LogLabel *label;
 	LogField *field;
 	int fd;
 
-	if ((fd = sqlite_logsys_openfile(log, LSFILE_LABEL, O_RDONLY | O_BINARY, 0)) < 0)
+	if ((fd = dao_logsys_openfile(log, LSFILE_LABEL, O_RDONLY | O_BINARY, 0)) < 0)
 		return (-1);
 
 	if (fstat(fd, &st))
     {
-		sqlite_logsys_voidclose(fd);
+		dao_logsys_voidclose(fd);
 		return (-2);
 	}
 	if ((unsigned int) st.st_size < sizeof(*label))
     {
 		/* It has to be at least this big. */
-		sqlite_logsys_voidclose(fd);
+		dao_logsys_voidclose(fd);
 		errno = EINVAL;		/* XXX */
 		return (-3);
 	}
-	if ((label = sqlite_loglabel_alloc(st.st_size)) == NULL)
+	if ((label = dao_loglabel_alloc(st.st_size)) == NULL)
     {
-		sqlite_logsys_voidclose(fd);
+		dao_logsys_voidclose(fd);
 		return (-4);
 	}
 	if (read(fd, label, st.st_size) != st.st_size)
     {
-		sqlite_logsys_voidclose(fd);
-		sqlite_loglabel_free(label);
+		dao_logsys_voidclose(fd);
+		dao_loglabel_free(label);
 		return (-5);
 	}
 	if (label->magic != LSMAGIC_LABEL)
     {
-		sqlite_logsys_voidclose(fd);
-		sqlite_loglabel_free(label);
-		sqlite_logsys_warning(log, "Label is not valid");
+		dao_logsys_voidclose(fd);
+		dao_loglabel_free(label);
+		dao_logsys_warning(log, "Label is not valid");
 		errno = EINVAL;
 		return (-6);
 	}
@@ -530,7 +531,7 @@ int sqlite_logsys_readlabel(LogSystem *log)
 
 /* Return path into named file in logsystem.
  * ALERT : Returned buffer is static and is overwritten on each call. */
-char * sqlite_logsys_filepath(LogSystem *log, char *basename)
+char * dao_logsys_filepath(LogSystem *log, char *basename)
 {
 	static char filename[1024];
 
@@ -541,7 +542,7 @@ char * sqlite_logsys_filepath(LogSystem *log, char *basename)
 }
 
 /* Open specified file and make sure it does not clash with stdio. */
-int sqlite_logsys_openfile(LogSystem *log, char *basename, int flags, int mode)
+int dao_logsys_openfile(LogSystem *log, char *basename, int flags, int mode)
 {
 	int fd;
 
@@ -557,7 +558,7 @@ int sqlite_logsys_openfile(LogSystem *log, char *basename, int flags, int mode)
 			dbName = strcat(dbName, basename);
 			toFree = 1;
 		} else {
-			dbName = sqlite_logsys_filepath(log, basename);
+			dbName = dao_logsys_filepath(log, basename);
 		}
 		
 		fd = open(dbName, flags, mode);
@@ -585,7 +586,7 @@ int sqlite_logsys_openfile(LogSystem *log, char *basename, int flags, int mode)
 	}
 }
 
-void sqlite_logsys_voidclose(int fd)
+void dao_logsys_voidclose(int fd)
 {
 	int err = errno;
 
@@ -593,19 +594,19 @@ void sqlite_logsys_voidclose(int fd)
 	errno = err;
 }
 
-LogEntry * sqlite_logentry_get(LogSystem *log)
+LogEntry * dao_logentry_get(LogSystem *log)
 {
 	LogEntry *entry;
 
-	entry = sqlite_logentry_alloc_skipclear(log, log->walkidx);
+	entry = dao_logentry_alloc_skipclear(log, log->walkidx);
 
-	// Jira TX-3199 DAO: stub
-	// if (log_sqlitereadbuf(entry) < 1)
-	if (dao_logentry_findOne(entry) < 1)
+	// Jira TX-3199 DAO
+	// if (log_daoreadbuf(entry) < 1)
+	if (Service_findEntry(entry) < 1)
 	{
 		/*  0 no entries
 		 * -1 an error appened */
-		sqlite_logentry_free(entry);
+		dao_logentry_free(entry);
 		return NULL;
 	}
 	++log->walkidx;

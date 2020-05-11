@@ -9,7 +9,7 @@
 #include <string.h>
 #include "data-access/commons/commons.h"
 #include "logsystem.definitions.h"
-#include "logsystem.sqlite.h"
+#include "logsystem.dao.h"
 #include "logsystem.h"
 
 static int execUpdateQuery(LogEntry *entry, int rawmode);
@@ -24,10 +24,10 @@ int Service_updateEntry(LogEntry *entry, int rawmode) {
 		return -1;
 	}
 
-	// TODO log debug sqlite_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
+	// TODO log debug dao_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
 	int returnCode = execUpdateQuery(entry, rawmode);
 	if (!returnCode) {
-		sqlite_logsys_warning(log, "Write operation in SQLite database failed : Service_updateEntry");
+		dao_logsys_warning(log, "Write operation in SQLite database failed : Service_updateEntry");
 	}
 	if (returnCode == TRUE) {
 		return 0;

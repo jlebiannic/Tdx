@@ -10,7 +10,7 @@
 	Warning and fatal messages.
 ========================================================================*/
 #include "conf/config.h"
-MODULE("@(#)TradeXpress $Id: messages.c 47371 2013-10-21 13:58:37Z cdemory $")
+MODULE("@(#)TradeXpress $Id: messages.c 55487 2020-05-06 08:56:27Z jlebiannic $")
 /*LIBRARY(liblogsystem_version)
 */
 /*========================================================================
@@ -23,9 +23,9 @@ MODULE("@(#)TradeXpress $Id: messages.c 47371 2013-10-21 13:58:37Z cdemory $")
 #include <stdarg.h>
 #include <sys/types.h>
 
-#include "logsystem.sqlite.h"
+#include "logsystem.dao.h"
 
-static char * sqlite_lsname(LogSystem *ls)
+static char * dao_lsname(LogSystem *ls)
 {
 	char *name = "Logsys";
 	char *cp, *slash;
@@ -43,13 +43,13 @@ static char * sqlite_lsname(LogSystem *ls)
 	return (name);
 }
 
-void sqlite_logsys_warning(LogSystem *ls, char *fmt, ...)
+void dao_logsys_warning(LogSystem *ls, char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
 
-	fprintf(stderr, "%s: ", sqlite_lsname(ls));
+	fprintf(stderr, "%s: ", dao_lsname(ls));
 	vfprintf(stderr, fmt, ap);
 	fprintf(stderr, "\n");
 	fflush(stderr);
@@ -57,15 +57,15 @@ void sqlite_logsys_warning(LogSystem *ls, char *fmt, ...)
 	va_end(ap);
 }
 
-void sqlite_debug_logsys_warning(LogSystem *ls, char *fmt, ...)
+void dao_debug_logsys_warning(LogSystem *ls, char *fmt, ...)
 {
 	va_list ap;
 
-    if (getenv("SQLITE_DEBUG") != NULL)
+    if (getenv("DAO_DEBUG") != NULL)
     {
         va_start(ap, fmt);
 
-        fprintf(stderr, "%s (%d/%d): ", sqlite_lsname(ls), ls->datafd, (int) ls->datadb_handle);
+        fprintf(stderr, "%s: ", dao_lsname(ls));
         vfprintf(stderr, fmt, ap);
         fprintf(stderr, "\n");
         fflush(stderr);
@@ -74,7 +74,7 @@ void sqlite_debug_logsys_warning(LogSystem *ls, char *fmt, ...)
     }
 }
 
-void sqlite_logsys_trace(LogSystem *ls, char *fmt, ...)
+void dao_logsys_trace(LogSystem *ls, char *fmt, ...)
 {
 	va_list ap;
 	static int dotrace = -1;
@@ -90,7 +90,7 @@ void sqlite_logsys_trace(LogSystem *ls, char *fmt, ...)
     {
 		va_start(ap, fmt);
 
-		fprintf(stderr, "%s trace: ", sqlite_lsname(ls));
+		fprintf(stderr, "%s trace: ", dao_lsname(ls));
 		vfprintf(stderr, fmt, ap);
 		fprintf(stderr, "\n");
 		fflush(stderr);
@@ -99,7 +99,7 @@ void sqlite_logsys_trace(LogSystem *ls, char *fmt, ...)
 	}
 }
 
-char * sqlite_syserr_string(int error)
+char * dao_syserr_string(int error)
 {
     char *error_desc;
 

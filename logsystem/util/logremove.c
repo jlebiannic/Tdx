@@ -8,7 +8,7 @@
 	Copyright (c) 1992 Telecom Finland/EDI Operations
 ============================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: logremove.c 55239 2019-11-19 13:50:31Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: logremove.c 55499 2020-05-07 16:25:38Z jlebiannic $")
 /*============================================================================
   Record all changes here and update the above string accordingly.
   3.00 25.01.95/JN	Adapted from 3.1.1 logview
@@ -27,7 +27,7 @@ MODULE("@(#)TradeXpress $Id: logremove.c 55239 2019-11-19 13:50:31Z sodifrance $
 					webaccess when installing over 64bits windows installation
   3.09 17/12/13/SCH (CG) TX-524 : Basename() is replace by a single line of code
                          Process WNT / *NIX sep difference
-						 Take logentry_remove() returned value into account
+						 Take dao_logentry_remove() returned value into account
 						 SONAR results improvement + Robustness adds.
   3.10 05/06/14/YLI (CG) TX-2565 : when an entry bplog/bplog_archive is removed by filters,
 						 its bplog_details/ bplog_details_archive entries are also removed
@@ -59,9 +59,8 @@ MODULE("@(#)TradeXpress $Id: logremove.c 55239 2019-11-19 13:50:31Z sodifrance $
 #endif
 
 extern int errno;
-extern int tr_useSQLiteLogsys;
 
-#include "logsystem/lib/logsystem.h"
+#include "logsystem/lib/logsystem.dao.h"
 #include "translator/translator.h"
 
 /*WBA-410: Declaration of functions*/
@@ -95,7 +94,7 @@ void bail_out(char *fmt, ...)
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
 	if (errno) {
-		fprintf(stderr, " (%d,%s)\n", errno, syserr_string(errno));
+		fprintf(stderr, " (%d,%s)\n", errno, dao_syserr_string(errno));
 	}
 	exit(1);
 }
@@ -221,7 +220,7 @@ int processLogFile(FILE* fichier, LogSystem* plog) {
 #else
 				strcat(baseSyslog, "/syslog");
 #endif	
-				if ((syslog = logsys_open(baseSyslog, LS_FAILOK)) == NULL) {
+				if ((syslog = dao_logsys_open(baseSyslog, LS_FAILOK)) == NULL) {
 					perror_exit(baseSyslog);
 				}else{
 					/* call functions to processing the tags */
@@ -243,7 +242,7 @@ int processLogFile(FILE* fichier, LogSystem* plog) {
 #else
 				strcat(baseArchive, "/archive");
 #endif	
-				if ((archive = logsys_open(baseArchive, LS_FAILOK)) == NULL) {
+				if ((archive = dao_logsys_open(baseArchive, LS_FAILOK)) == NULL) {
 					perror_exit(baseArchive);
 				}else{	
 					/* call functions to processing the tags */
@@ -343,10 +342,10 @@ int processLogLine_database(char *line, LogSystem* plog){
 	if (syslog_index == 0){
       writeLog(10, "Malformed Entry node :\n%s\n, this link will be removed\n", lineSyslog);
 	}else{
-		logentry_remove(plog, syslog_index, NULL);
+		dao_logentry_remove(plog, syslog_index, NULL);
    }
 	writeLog(10, "database name=%s, removed index=%li\n", basename+1, original_index);
-	logentry_remove(plog, original_index, NULL);
+	dao_logentry_remove(plog, original_index, NULL);
 	
 	return 0;
 }
@@ -412,10 +411,10 @@ int processLogLine_data_path(char *line, LogSystem* plog){
 	if (syslog_index == 0){
       writeLog(10, "Malformed Entry node :\n%s\n, this link will be removed\n", lineSyslog);
 	}else{
-		logentry_remove(plog, syslog_index, NULL);
+		dao_logentry_remove(plog, syslog_index, NULL);
    }
     writeLog(10, "removed index=%li\n", original_index);		
-	logentry_remove(plog, original_index, NULL);
+	dao_logentry_remove(plog, original_index, NULL);
 	
     return 0;
 }
@@ -481,7 +480,7 @@ void bplogEntryRemove(char *baseBplog, char *nIndex, int isArchive){
 			strcpy(newBaseBp, baseBplog);
 			strcat(newBaseBp, "_details");
 			/* Open bplog_details to delete linked entries                */
-			if ((logdetails = logsys_open(newBaseBp, LS_FAILOK)) == NULL) {
+			if ((logdetails = dao_logsys_open(newBaseBp, LS_FAILOK)) == NULL) {
 				perror_exit(newBaseBp);
 			} else {
 					nRet = processLogFile(logEntryFile, logdetails);
@@ -491,7 +490,7 @@ void bplogEntryRemove(char *baseBplog, char *nIndex, int isArchive){
 						writeLog(10, "bplog_details' entries not found\n");
 					}
 			}
-			logsys_close(logdetails);
+			dao_logsys_close(logdetails);
 
 			/* CGL(CG) 29/10/15 WBA-410: Creation of temp file*/
 #ifdef MACHINE_WNT
@@ -531,12 +530,12 @@ void bplogEntryRemove(char *baseBplog, char *nIndex, int isArchive){
 					index = atol(indexBlogDetails);
 					
 					/* Open bplog_details to delete linked entries                */
-					if ((logdetails = logsys_open(newBaseBp, LS_FAILOK)) == NULL) {
+					if ((logdetails = dao_logsys_open(newBaseBp, LS_FAILOK)) == NULL) {
 						perror_exit(newBaseBp);
 					}else{
-						logentry_remove(logdetails, index, NULL);
+						dao_logentry_remove(logdetails, index, NULL);
 					}
-					logsys_close(logdetails);
+					dao_logsys_close(logdetails);
 				}
 				fclose(logviewBplogDetails);
 			}
@@ -552,7 +551,7 @@ void bplogEntryRemove(char *baseBplog, char *nIndex, int isArchive){
 			newBaseBp[strlen(baseBplog)-7] = '\0';
 			strcat(newBaseBp, "details_archive");
 			/* Open bplog_details_archive to delete linked entries        */
-			if ((logdetails = logsys_open(newBaseBp, LS_FAILOK)) == NULL) {
+			if ((logdetails = dao_logsys_open(newBaseBp, LS_FAILOK)) == NULL) {
 				perror_exit(newBaseBp);
 			} else {
 					nRet = processLogFile(logEntryFile, logdetails);
@@ -562,7 +561,7 @@ void bplogEntryRemove(char *baseBplog, char *nIndex, int isArchive){
 						writeLog(10, "bplog_details_archive's entries not found\n");
 					}
 			}
-			logsys_close(logdetails);
+			dao_logsys_close(logdetails);
 		}
 		free(newBaseBp);
 	}
@@ -579,13 +578,13 @@ void removeAllEntry_details(char * newSysname)
 	LogSystem * log_details = NULL;
 
 	/* Open the database "newSysname"                                         */
-	if ((log_details = logsys_open(newSysname, LS_FAILOK)) == NULL) {
+	if ((log_details = dao_logsys_open(newSysname, LS_FAILOK)) == NULL) {
 		perror_exit(newSysname);
 	} else {
-		logsys_removebyfilter(log_details, NULL, NULL);
+		dao_logsys_removebyfilter(log_details, NULL, NULL);
 	}
 
-	logsys_close(log_details);
+	dao_logsys_close(log_details);
 }
 /*End YLI(CG) 07-08-2014 TX-2565*/
 /* -------------------------------------------------------------------------- */
@@ -633,14 +632,9 @@ main(int argc, char **argv)
 
     /* ---------------------------------------------------------------------- */
 	fflush(stderr);
-    logsys_compability_setup();
+    dao_logsys_compability_setup();
 
-    /* only revelant it local mode in rls, this is looked at server side      */
-    if (getenv("USE_SQLITE_LOGSYS") != NULL) {
-        tr_useSQLiteLogsys = atoi(getenv("USE_SQLITE_LOGSYS"));
-    } else {
-        tr_useSQLiteLogsys = 0;
-	}
+
     /* ---------------------------------------------------------------------- */
 
 	cmd = argv[0];
@@ -661,20 +655,12 @@ Valid options are:\n\
 	-e extension		extension of file to remove\n\
 	-f 'name op value'	insert an entry to filter\n\
 	-F filterfile		read filter from file\n\
-	-O 			the base is an old legacy one\n\
-	-I 			the base is a  sqlite one\n\
-	-t			use transaction mode on sqlite base\n\
+	-t			use transaction mode on base\n\
 ");
 			exit (2);
 			break;
 		case 's':
 			sysname = optarg;
-			break;
-        case 'O' :
-            tr_useSQLiteLogsys = 0;
-			break;
-        case 'I' :
-            tr_useSQLiteLogsys = 1;
 			break;
         case 't' :
 			logsys_useTransaction = 1;
@@ -693,7 +679,7 @@ Valid options are:\n\
 
 		case 'f':
 			/* Add one field into filter. */
-			logfilter_add(&logFilter, optarg);
+			dao_logfilter_add(&logFilter, optarg);
 			break;
 		case 'F':
 			/* Read filter from file. */
@@ -705,7 +691,7 @@ Valid options are:\n\
             }
             }
 
-			logfilter_read(&logFilter, fp);
+			dao_logfilter_read(&logFilter, fp);
 			if (fp != stdin) {
 				fclose(fp);
 			}
@@ -723,11 +709,11 @@ Valid options are:\n\
 		fatal_exit("No system name given");
 	}
 
-	if ((log = logsys_open(sysname, LS_FAILOK)) == NULL) {
+	if ((log = dao_logsys_open(sysname, LS_FAILOK)) == NULL) {
 		perror_exit(sysname);
 	}
 
-	if ((logsys_useTransaction == 1) && (logsys_begin_transaction(log) == -1)) {
+	if ((logsys_useTransaction == 1) && (dao_logsys_begin_transaction(log) == -1)) {
 		exit(1);
 	}
 
@@ -756,11 +742,6 @@ Valid options are:\n\
         int nRet;
         char errmsg[256];
         
-        if ((tr_useSQLiteLogsys == 0) && (absIndex<LS_GENERATION_MOD)){
-            /* 3.05/CD check that the given index is less than the generation divider */
-                sprintf(errmsg, "Cannot remove index %d: invalid index",absIndex);
-                fatal_exit(errmsg);
-            }
 		/* 3.10 */
 		if ( strcmp(basename, "bplog") == 0){
 			/* 0 : this base is bplog, remove associated bplog_details entries*/
@@ -773,27 +754,27 @@ Valid options are:\n\
 		/* END 3.10 */
     	/* 3.07 */
         /* 3.05/CD do not specify any index (use NULL as 3rd arg) */
-        if (nRet=logentry_remove(log, absIndex, NULL)){
-			sprintf(errmsg, "Cannot remove index %d: %s", absIndex, syserr_string(errno));
+        if (nRet=dao_logentry_remove(log, absIndex, NULL)){
+			sprintf(errmsg, "Cannot remove index %d: %s", absIndex, dao_syserr_string(errno));
 			if (logsys_useTransaction == 1) {
-				logsys_end_transaction(log);
+				dao_logsys_end_transaction(log);
 			}
 			fatal_exit(errmsg);
         }
 	} else{/* else index of an entry is not a parameter                              */
 /* 3.04 */
-		nunk = logsys_compilefilter(log, logFilter);
+		nunk = dao_logsys_compilefilter(log, logFilter);
 		/* nunk = 0: field exists */
 		if (nunk != 0){
 			for (g = logFilter->filters; g < &logFilter->filters[logFilter->filter_count]; ++g){
 				g->field = NULL;
-				g->field = logsys_getfield(log, g->name);
+				g->field = dao_logsys_getfield(log, g->name);
 				if (!g->field) {
 					fprintf (stderr, "Error: Field %s does not exist\n",g->name);
 			}
 			}
 
-			if ((logsys_useTransaction == 1) && (logsys_end_transaction(log) == -1)) {
+			if ((logsys_useTransaction == 1) && (dao_logsys_end_transaction(log) == -1)) {
 				exit(1);
 			}
 			exit (0);
@@ -812,7 +793,7 @@ Are you sure you want to continue (y/n) ? ",
 			if (get_confirmation('n') != 'y'){
 				fprintf(stderr, "Cancelled.\n");
 				if (logsys_useTransaction == 1) {
-					logsys_end_transaction(log);
+					dao_logsys_end_transaction(log);
 				}
 				exit(2);
 			}
@@ -821,7 +802,7 @@ Are you sure you want to continue (y/n) ? ",
 		
 		/* 3.10 remove an entry bplog and its bplog_detail entries according to filters */
     	if ( strcmp(basename, "bplog") == 0 && logFilter != NULL ){
-			indexes = logsys_list_indexed(log, logFilter);
+			indexes = dao_logsys_list_indexed(log, logFilter);
 			while ((i = indexes?indexes[n]:0) != 0){
 				n++;
 				sprintf(idxBplog, "%d", i); 
@@ -840,7 +821,7 @@ Are you sure you want to continue (y/n) ? ",
 
 		/* remove an entry bplog_archive and its bplog_details_archive entries according to filters*/
 		if ( strcmp(basename, "bplog_archive") == 0 && logFilter != NULL ){
-			indexes = logsys_list_indexed(log, logFilter);
+			indexes = dao_logsys_list_indexed(log, logFilter);
 			while ((i = indexes?indexes[n]:0) != 0){
 				n++;
 				sprintf(idxBplog, "%d", i); 
@@ -858,11 +839,11 @@ Are you sure you want to continue (y/n) ? ",
 			free(newSysname);
 		}
 		/*END 3.10 */
-		logsys_removebyfilter(log, logFilter, extension);
+		dao_logsys_removebyfilter(log, logFilter, extension);
 	}
 	/* 3.07 */
 	
-	if ((logsys_useTransaction == 1) && (logsys_end_transaction(log) == -1)) {
+	if ((logsys_useTransaction == 1) && (dao_logsys_end_transaction(log) == -1)) {
 		exit(1);
 	}
 

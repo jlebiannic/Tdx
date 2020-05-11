@@ -13,7 +13,7 @@
 	Look at variables logsys_*_allocated
 	when a leak is suspected.
 ========================================================================*/
-static char *version = "@(#)TradeXpress $Id: memalloc.c 55415 2020-03-04 18:11:43Z jlebiannic $";
+static char *version = "@(#)TradeXpress $Id: memalloc.c 55487 2020-05-06 08:56:27Z jlebiannic $";
 static char *uname = UNAME;
 extern char *liblogsystem_version;
 static char **lib = &liblogsystem_version;
@@ -27,7 +27,7 @@ static char **lib = &liblogsystem_version;
 #include <sys/types.h>
 
 #include "private.h"
-#include "logsystem.sqlite.h"
+#include "logsystem.dao.h"
 
 void *malloc();
 void *realloc();
@@ -38,20 +38,20 @@ int logsys_entries_allocated;
 int logsys_systems_allocated;
 int logsys_labels_allocated;
 
-void * sqlite_log_malloc(int size)
+void * dao_log_malloc(int size)
 {
 	void *p = NULL;
 
 	p = malloc(size);
 	if (p == NULL)
     {
-		sqlite_logsys_warning((void *) NULL, "Out of memory");
+		dao_logsys_warning((void *) NULL, "Out of memory");
 		exit(1);
 	}
 	return (p);
 }
 
-void * sqlite_log_realloc(void *old, int size)
+void * dao_log_realloc(void *old, int size)
 {
 	void *p = NULL;
 
@@ -63,26 +63,26 @@ void * sqlite_log_realloc(void *old, int size)
 
 	if (p == NULL)
     {
-		sqlite_logsys_warning((void *) NULL, "Out of memory");
+		dao_logsys_warning((void *) NULL, "Out of memory");
 		exit(1);
 	}
 	return (p);
 }
 
-char * sqlite_log_strdup(char *s)
+char * dao_log_strdup(char *s)
 {
 	void *p = NULL;
 
-	p = sqlite_log_malloc(strlen(s) + 1);
+	p = dao_log_malloc(strlen(s) + 1);
 	strcpy(p, s);
 	return (p);
 }
 
-char * sqlite_log_str3dup(char *a, char *b, char *c)
+char * dao_log_str3dup(char *a, char *b, char *c)
 {
 	void *p = NULL;
 
-	p = sqlite_log_malloc(strlen(a) + strlen(b) + strlen(c) + 1);
+	p = dao_log_malloc(strlen(a) + strlen(b) + strlen(c) + 1);
 	strcpy(p, a);
 	strcat(p, b);
 	strcat(p, c);
@@ -94,7 +94,7 @@ char * sqlite_log_str3dup(char *a, char *b, char *c)
  * After io-error, memory is often released
  * before returning error-indication.
  * Saving errno here simplifies this. */
-static void sqlite_release(void *p)
+static void dao_release(void *p)
 {
 	int e = errno;
 
@@ -102,24 +102,24 @@ static void sqlite_release(void *p)
 	errno = e;
 }
 
-LogEntry *sqlite_logentry_alloc_skipclear(LogSystem *log, LogIndex idx)
+LogEntry *dao_logentry_alloc_skipclear(LogSystem *log, LogIndex idx)
 {
 	LogEntry *entry;
 
-	entry = sqlite_log_malloc(sizeof(*entry));
+	entry = dao_log_malloc(sizeof(*entry));
 
 	entry->idx = idx;
 	entry->logsys = log;
-    entry->record = sqlite_log_malloc(log->label->recordsize);
+    entry->record = dao_log_malloc(log->label->recordsize);
 	
 	++logsys_entries_allocated;
 
 	return (entry);
 }
 
-LogEntry *sqlite_logentry_alloc(LogSystem *log, LogIndex idx)
+LogEntry *dao_logentry_alloc(LogSystem *log, LogIndex idx)
 {
-	LogEntry *entry = sqlite_logentry_alloc_skipclear(log, idx);
+	LogEntry *entry = dao_logentry_alloc_skipclear(log, idx);
 
 	if (entry->record) {
 		memset(entry->record, 0, log->label->recordsize);
@@ -128,21 +128,21 @@ LogEntry *sqlite_logentry_alloc(LogSystem *log, LogIndex idx)
 	return (entry);
 }
 
-void sqlite_logentry_free(LogEntry *entry)
+void dao_logentry_free(LogEntry *entry)
 {
 	void *record = entry->record;
 
 	--logsys_entries_allocated;
 
 	if (record) {
-		sqlite_release(record);
+		dao_release(record);
 	}
 	entry->record = NULL;
 
-	sqlite_release(entry);
+	dao_release(entry);
 }
 
-static char *sqlite_find_first_sep(char *path)
+static char *dao_find_first_sep(char *path)
 {
 	for ( ; ; ++path)
     {
@@ -176,17 +176,17 @@ char* getLastPath(char *dirPath) {
 	return lastPath;
 }
 
-LogSystem *sqlite_logsys_alloc(char *sysname)
+LogSystem *dao_logsys_alloc(char *sysname)
 {
 	LogSystem *log;
 	char *cp, *cp2, *owner;
 
-	log = sqlite_log_malloc(sizeof(*log));
+	log = dao_log_malloc(sizeof(*log));
 	memset(log, 0, sizeof(*log));
 
-	log->sysname = sqlite_log_strdup(sysname);
+	log->sysname = dao_log_strdup(sysname);
 	// Jira TX-3199 DAO: get current table
-	log->table = sqlite_log_strdup(getLastPath(sysname));
+	log->table = dao_log_strdup(getLastPath(sysname));
 
 	log->labelfd = -1;
 	log->datafd = -1;
@@ -197,37 +197,37 @@ LogSystem *sqlite_logsys_alloc(char *sysname)
 
 	/* Second last path segment is the owner (normally) */
 	owner = log->sysname;
-	for (cp = owner; (cp2 = sqlite_find_first_sep(cp)); )
+	for (cp = owner; (cp2 = dao_find_first_sep(cp)); )
     {
 		owner = cp;
 		cp = cp2 + 1;
 	}
-	log->owner = sqlite_log_strdup(owner);
+	log->owner = dao_log_strdup(owner);
 
-	if ((cp = sqlite_find_first_sep(log->owner))) {
+	if ((cp = dao_find_first_sep(log->owner))) {
 		*cp = 0;
 	}
 
 	return (log);
 }
 
-void sqlite_logsys_free(LogSystem *log)
+void dao_logsys_free(LogSystem *log)
 {
 	--logsys_systems_allocated;
 
 	if (log->owner) {
-		sqlite_release(log->owner);
+		dao_release(log->owner);
 	}
 
-	sqlite_release(log->sysname);
-	sqlite_release(log);
+	dao_release(log->sysname);
+	dao_release(log);
 }
 
-LogLabel *sqlite_loglabel_alloc(int size)
+LogLabel *dao_loglabel_alloc(int size)
 {
 	LogLabel *label;
 
-	label = sqlite_log_malloc(size);
+	label = dao_log_malloc(size);
 	memset(label, 0, size);
 
 	++logsys_labels_allocated;
@@ -235,41 +235,41 @@ LogLabel *sqlite_loglabel_alloc(int size)
 	return (label);
 }
 
-int sqlite_loglabel_free(LogLabel *lab)
+int dao_loglabel_free(LogLabel *lab)
 {
 	--logsys_labels_allocated;
-	sqlite_release(lab);
+	dao_release(lab);
     return 0;
 }
 
 /*JRE 06.15 BG-81*/
-LogEntryEnv *sqlite_logentry_alloc_env(LogSystem *log, LogIndexEnv idx)
+LogEntryEnv *dao_logentry_alloc_env(LogSystem *log, LogIndexEnv idx)
 {
 	LogEntryEnv *entry;
 
-	entry = sqlite_log_malloc(sizeof(*entry));
+	entry = dao_log_malloc(sizeof(*entry));
 
 	entry->idx = idx;
 	entry->logsys = log;
-    entry->record = sqlite_log_malloc(log->label->recordsize);
+    entry->record = dao_log_malloc(log->label->recordsize);
 	
 	++logsys_entries_allocated;
 
 	return (entry);
 }
 
-void sqlite_logentryenv_free(LogEntryEnv *entry)
+void dao_logentryenv_free(LogEntryEnv *entry)
 {
 	void *record = entry->record;
 
 	--logsys_entries_allocated;
 
 	if (record) {
-		sqlite_release(record);
+		dao_release(record);
 	}
 	entry->record = NULL;
 
-	sqlite_release(entry);
+	dao_release(entry);
 }
 /*End JRE*/
 

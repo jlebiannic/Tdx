@@ -19,7 +19,7 @@
 #else /* ! WNT */
 
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: removal.c 55239 2019-11-19 13:50:31Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: removal.c 55487 2020-05-06 08:56:27Z jlebiannic $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 03.10.94/JN	Created.
@@ -45,13 +45,13 @@ MODULE("@(#)TradeXpress $Id: removal.c 55239 2019-11-19 13:50:31Z sodifrance $")
 #include "private.h"
 
 #define _REMOVAL_C
-#include "logsystem.sqlite.h"
+#include "logsystem.dao.h"
 #undef _REMOVAL_C
 
 /* Just single file or all including entry itself. */
-int sqlite_logentry_remove(LogSystem *log, LogIndex idx, char *extension)
+int dao_logentry_remove(LogSystem *log, LogIndex idx, char *extension)
 {
-	LogEntry *entry = sqlite_logentry_readindex(log, idx);
+	LogEntry *entry = dao_logentry_readindex(log, idx);
 	int rv = 0;
 
 	if (!entry)
@@ -60,8 +60,8 @@ int sqlite_logentry_remove(LogSystem *log, LogIndex idx, char *extension)
 	if (extension)
     {
 		/* Delete single file and release entry just read. */
-		rv = sqlite_logentry_removefiles(entry, extension);
-		sqlite_logentry_free(entry);
+		rv = dao_logentry_removefiles(entry, extension);
+		dao_logentry_free(entry);
 	}
     else
     {
@@ -69,11 +69,11 @@ int sqlite_logentry_remove(LogSystem *log, LogIndex idx, char *extension)
 		 * try to remove the entry itself.
 		 * If all files cannot be removed, space of entry
 		 * has to be released here (destroy releases too). */
-		rv = sqlite_logentry_removefiles(entry, NULL);
+		rv = dao_logentry_removefiles(entry, NULL);
 		if (rv == 0)
-			rv = sqlite_logentry_destroy(entry);
+			rv = dao_logentry_destroy(entry);
 		else
-			sqlite_logentry_free(entry);
+			dao_logentry_free(entry);
 	}
 	return (rv);
 }
@@ -81,21 +81,21 @@ int sqlite_logentry_remove(LogSystem *log, LogIndex idx, char *extension)
 /* when removing by filter, we can't do a DELETE WHERE "filters" directly 
  * cause we must be sure we have destroy all extensions files for an entry 
  * before proceeding to the DELETE */
-int sqlite_logsys_removebyfilter(LogSystem *log, LogFilter *lf, char *extension)
+int dao_logsys_removebyfilter(LogSystem *log, LogFilter *lf, char *extension)
 {
     LogIndex *indexes;
     int matchingIndexes = 0;
     int errors = 0;
     int result = 0;
 
-    indexes = sqlite_logsys_list_indexed(log,lf);
+    indexes = dao_logsys_list_indexed(log,lf);
     
 	if (indexes == NULL)
 		return 0; /* no answer is not an error ? */
 	
     while (indexes[matchingIndexes] != 0)
     {
-        result = sqlite_logentry_remove(log,indexes[matchingIndexes],extension);
+        result = dao_logentry_remove(log,indexes[matchingIndexes],extension);
         if (result == -1)
             ++errors;
         else
@@ -122,7 +122,7 @@ int sqlite_logsys_removebyfilter(LogSystem *log, LogFilter *lf, char *extension)
  * Returns number of problems detected.
  * If a directory or file did not exist, it is ok.
  */
-int sqlite_logentry_removefiles(LogEntry *entry, char *extension)
+int dao_logentry_removefiles(LogEntry *entry, char *extension)
 {
 	char *path;
 	char *base;
@@ -133,7 +133,7 @@ int sqlite_logentry_removefiles(LogEntry *entry, char *extension)
 	 * ALERT
 	 * Dont call any logsystem-functions
 	 * as long using `directory'. */
-	path = sqlite_logsys_filepath(entry->logsys, LSFILE_FILES);
+	path = dao_logsys_filepath(entry->logsys, LSFILE_FILES);
 	base = path + strlen(path);
 
 	if (extension)
@@ -201,7 +201,7 @@ int sqlite_logentry_removefiles(LogEntry *entry, char *extension)
 		}
 		/* Run thru tmp directory too
 		 * for .../tmp/index.* */
-		path = sqlite_logsys_filepath(entry->logsys, LSFILE_TMP);
+		path = dao_logsys_filepath(entry->logsys, LSFILE_TMP);
 		base = path + strlen(path);
 
 		if ((dirp = opendir(path)) == NULL)
@@ -232,7 +232,7 @@ int sqlite_logentry_removefiles(LogEntry *entry, char *extension)
 }
 
 /* Moves files under entry to new index. */
-int sqlite_logentry_movefiles(LogEntry *entry, LogIndex newidx)
+int dao_logentry_movefiles(LogEntry *entry, LogIndex newidx)
 {
 	LogSystem *log = entry->logsys;
 	char path[1025];
@@ -243,7 +243,7 @@ int sqlite_logentry_movefiles(LogEntry *entry, LogIndex newidx)
 	DIR *dirp;
 	int rv = 0;
 
-	strcpy(path, sqlite_logsys_filepath(log, LSFILE_FILES));
+	strcpy(path, dao_logsys_filepath(log, LSFILE_FILES));
 	strcpy(newpath, path);
 
 	base = path + strlen(path);
@@ -265,13 +265,13 @@ int sqlite_logentry_movefiles(LogEntry *entry, LogIndex newidx)
             {
 				if (errno != ENOENT)
                 {
-					sqlite_logsys_warning(log, "link %s to %s: %s", path, newpath, sqlite_syserr_string(errno));
+					dao_logsys_warning(log, "link %s to %s: %s", path, newpath, dao_syserr_string(errno));
 					++rv;
 				}
 			}
             else if (unlink(path))
             {
-				sqlite_logsys_warning(log, "unlink %s: %s", path, sqlite_syserr_string(errno));
+				dao_logsys_warning(log, "unlink %s: %s", path, dao_syserr_string(errno));
 				++rv;
 			}
 		}
@@ -305,13 +305,13 @@ int sqlite_logentry_movefiles(LogEntry *entry, LogIndex newidx)
             {
 				if (errno != ENOENT)
                 {
-					sqlite_logsys_warning(log, "link %s to %s: %s", path, newpath, sqlite_syserr_string(errno));
+					dao_logsys_warning(log, "link %s to %s: %s", path, newpath, dao_syserr_string(errno));
 					++rv;
 				}
 			}
             else if (unlink(path))
             {
-				sqlite_logsys_warning(log, "unlink %s: %s", path, sqlite_syserr_string(errno));
+				dao_logsys_warning(log, "unlink %s: %s", path, dao_syserr_string(errno));
 				++rv;
 			}
 		}
@@ -329,7 +329,7 @@ int sqlite_logentry_movefiles(LogEntry *entry, LogIndex newidx)
  *
  *  Currently we check here for < 32 (ignoring . in between) in the variable.
  */
-void sqlite_logsys_compability_setup()
+void dao_logsys_compability_setup()
 {
 	char *cp;
 	char major, minor;

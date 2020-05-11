@@ -11,7 +11,7 @@
 	Hardcoded defaults live mostly here.
 ========================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: readconfig.c 55239 2019-11-19 13:50:31Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: readconfig.c 55487 2020-05-06 08:56:27Z jlebiannic $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 03.10.94/JN	Created.
@@ -27,7 +27,7 @@ MODULE("@(#)TradeXpress $Id: readconfig.c 55239 2019-11-19 13:50:31Z sodifrance 
 #include <fcntl.h>
 
 #include "private.h"
-#include "logsystem.sqlite.h"
+#include "logsystem.dao.h"
 
 #include "lstool.h"
 
@@ -55,11 +55,11 @@ static struct {
 char *logsys_Filesdirs[256];
 static int Nfilesdirs = 0;
 
-int sqlite_loglabel_free(LogLabel *lab);
+int dao_loglabel_free(LogLabel *lab);
 
-int sqlite_logsys_dirtocreate(char *dir)
+int dao_logsys_dirtocreate(char *dir)
 {
-	logsys_Filesdirs[Nfilesdirs++] = sqlite_log_strdup(dir);
+	logsys_Filesdirs[Nfilesdirs++] = dao_log_strdup(dir);
 	logsys_Filesdirs[Nfilesdirs] = NULL;
     return 0;
 }
@@ -77,14 +77,14 @@ typedef union {
 	char b[8];
 } Alignment;
 
-static int sqlite_octal_string(char *s)
+static int dao_octal_string(char *s)
 {
 	int oct = 0;
 
 	if (sscanf(s, "%o", &oct) != 1)
     {
 		errno = 0;
-		sqlite_bail_out("%s(%d): Bad octal number '%s'", the_filename, the_lineno, s);
+		dao_bail_out("%s(%d): Bad octal number '%s'", the_filename, the_lineno, s);
 	}
 	return (oct);
 }
@@ -92,7 +92,7 @@ static int sqlite_octal_string(char *s)
 /* These are defaults. Can be overridden in description file. */
 
 #define OPTION_DATA \
-EXTERN_REC( "ACCESS_MODE",      Access_mode,       "0600",    sqlite_octal_string, x)\
+EXTERN_REC( "ACCESS_MODE",      Access_mode,       "0600",    dao_octal_string, x)\
 OPTION_REC( "RECORD_SIZE",      record_size,       0,         NULL,         x)\
 OPTION_REC( "CLEANUP_COUNT",    cleanup_count,     0,         NULL,         x)\
 OPTION_REC( "CLEANUP_THRESHOLD",cleanup_threshold, 0,         NULL,         x)\
@@ -157,7 +157,7 @@ static int getBuiltinSizeFromType(int type) {
 	}
 }
 
-int sqlite_logsys_fillinternal(LogField *field, int type, char *string)
+int dao_logsys_fillinternal(LogField *field, int type, char *string)
 {
 	char *name = NULL;
 	char *format = NULL;
@@ -173,9 +173,9 @@ int sqlite_logsys_fillinternal(LogField *field, int type, char *string)
 	if (!header)
 		return (1);
 
-	field->name.string   = sqlite_log_strdup(name);
-	field->format.string = sqlite_log_strdup(format);
-	field->header.string = sqlite_log_strdup(header);
+	field->name.string   = dao_log_strdup(name);
+	field->format.string = dao_log_strdup(format);
+	field->header.string = dao_log_strdup(header);
 
 	field->type = type;
 	field->size = getBuiltinSizeFromType(type);
@@ -183,7 +183,7 @@ int sqlite_logsys_fillinternal(LogField *field, int type, char *string)
 	return (0);
 }
 
-int sqlite_logsys_fillfield(LogField *field, char *string)
+int dao_logsys_fillfield(LogField *field, char *string)
 {
 	char *name = NULL;
 	char *type = NULL;
@@ -204,9 +204,9 @@ int sqlite_logsys_fillfield(LogField *field, char *string)
 	if (!header)
 		return (1);
 
-	field->name.string   = sqlite_log_strdup(name);
-	field->format.string = sqlite_log_strdup(format);
-	field->header.string = sqlite_log_strdup(header);
+	field->name.string   = dao_log_strdup(name);
+	field->format.string = dao_log_strdup(format);
+	field->header.string = dao_log_strdup(header);
 
 	if (!strcmp(type, "T"))
     {
@@ -231,7 +231,7 @@ int sqlite_logsys_fillfield(LogField *field, char *string)
 }
 
 /* Read configuration and return label. */
-LogLabel * sqlite_logsys_readconfig(char *filename, int onRebuild)
+LogLabel * dao_logsys_readconfig(char *filename, int onRebuild)
 {
 	FILE *fp;
 	char buffer[8192];
@@ -263,17 +263,17 @@ LogLabel * sqlite_logsys_readconfig(char *filename, int onRebuild)
 	fieldmax = SIZEOF(builtin_fields) + 64;
 	fields = (void *) malloc(fieldmax * sizeof(*fields));
 	if (fields == NULL)
-		sqlite_bail_out("Out of memory");
+		dao_bail_out("Out of memory");
 
 	for (n = 0; n < SIZEOF(builtin_fields); ++n)
     {
 		strcpy(buffer, builtin_fields[n].confstr);
 		builtin_fields[n].assigned = nfields;
 
-		if (sqlite_logsys_fillinternal(&fields[nfields], builtin_fields[n].type, buffer))
+		if (dao_logsys_fillinternal(&fields[nfields], builtin_fields[n].type, buffer))
         {
 			errno = 0;
-			sqlite_bail_out("Internal: Malformed field %s", builtin_fields[n].confstr);
+			dao_bail_out("Internal: Malformed field %s", builtin_fields[n].confstr);
 		}
 		++nfields;
 	}
@@ -302,7 +302,7 @@ LogLabel * sqlite_logsys_readconfig(char *filename, int onRebuild)
 		if (*cp == 0)
         {
 			errno = 0;
-			sqlite_bail_out("%s(%d): Malformed line: %s", the_filename, the_lineno, buffer);
+			dao_bail_out("%s(%d): Malformed line: %s", the_filename, the_lineno, buffer);
 		}
 		*cp++ = 0;
 
@@ -316,10 +316,10 @@ LogLabel * sqlite_logsys_readconfig(char *filename, int onRebuild)
 
 		if (n < SIZEOF(builtin_fields))
         {
-			if (sqlite_logsys_fillinternal( &fields[builtin_fields[n].assigned], builtin_fields[n].type, cp))
+			if (dao_logsys_fillinternal( &fields[builtin_fields[n].assigned], builtin_fields[n].type, cp))
             {
 				errno = 0;
-				sqlite_bail_out("%s(%d): Malformed field: %s", the_filename, the_lineno, cp);
+				dao_bail_out("%s(%d): Malformed field: %s", the_filename, the_lineno, cp);
 			}
 			continue;
 		}
@@ -346,19 +346,19 @@ LogLabel * sqlite_logsys_readconfig(char *filename, int onRebuild)
 				fieldmax += 32;
 				fields = (void *) realloc(fields, fieldmax * sizeof(*fields));
 				if (fields == NULL)
-					sqlite_bail_out("Out of memory");
+					dao_bail_out("Out of memory");
 			}
-			if (sqlite_logsys_fillfield(&fields[nfields], cp))
+			if (dao_logsys_fillfield(&fields[nfields], cp))
             {
 				errno = 0;
-				sqlite_bail_out("%s(%d): Malformed field: %s", the_filename, the_lineno, cp);
+				dao_bail_out("%s(%d): Malformed field: %s", the_filename, the_lineno, cp);
 			}
 			++nfields;
 			continue;
 		}
 		if (!strcmp(tag, "SUBDIR"))
         {
-			sqlite_logsys_dirtocreate(cp);
+			dao_logsys_dirtocreate(cp);
 			continue;
 		}
 		if (!strcmp(tag, "SQL_INDEX"))
@@ -374,11 +374,11 @@ LogLabel * sqlite_logsys_readconfig(char *filename, int onRebuild)
 	/* Arrange collected fields into good order and fill rest of information. */
 	fields[nfields].type = 0;
 
-	return (sqlite_logsys_arrangefields(fields,onRebuild));
+	return (dao_logsys_arrangefields(fields,onRebuild));
 }
 
 /* we have done a logcreate -R (reread), lets try to see if we can apply the changes */
-int sqlite_loglabel_compareconfig(LogLabel *oldLabel, LogLabel *newLabel)
+int dao_loglabel_compareconfig(LogLabel *oldLabel, LogLabel *newLabel)
 {
 	int comparison = 0;
 	LogField *oldField = NULL;
@@ -419,7 +419,7 @@ int sqlite_loglabel_compareconfig(LogLabel *oldLabel, LogLabel *newLabel)
 		if (oldField->type != newField->type)
 		{
 			comparison = -1;
-			fprintf(stderr, "Error : we have found the field : %s in the new cfg file, but it has not the same type as before. Was : %s and you specify : %s\n", oldField->name.string,sqlite_logfield_typename(oldField->type),sqlite_logfield_typename(newField->type));
+			fprintf(stderr, "Error : we have found the field : %s in the new cfg file, but it has not the same type as before. Was : %s and you specify : %s\n", oldField->name.string,dao_logfield_typename(oldField->type),dao_logfield_typename(newField->type));
 			break;
 		}
 		
@@ -472,7 +472,7 @@ int sqlite_loglabel_compareconfig(LogLabel *oldLabel, LogLabel *newLabel)
 }
 
 /* apply detected changes to the SQLite database */
-int sqlite_logdata_reconfig(LogLabel *oldLabel, LogSystem *log)
+int dao_logdata_reconfig(LogLabel *oldLabel, LogSystem *log)
 {
 	LogLabel *newLabel = log->label;
 	LogField *oldField = NULL;
@@ -494,15 +494,15 @@ int sqlite_logdata_reconfig(LogLabel *oldLabel, LogSystem *log)
 			++oldField;
 
 		if (!oldField->type)                               /* we have not found the new field in the old label */
-			if ( log_sqlitecolumnadd(log,newField) == -1 ) /* lets add it to the SQLite database ! */
+			if ( log_daocolumnadd(log,newField) == -1 ) /* lets add it to the SQLite database ! */
 				return -1;                                 /* do NOT go on if there were an error */
 
 		/* we have a field 
 		 * but from the SQLite point of view we do not care ! */
 	}
 
-	/* Now be sure of data access consistency : give the label the same order as the sqlite db */
-	return sqlite_logsys_sync_label(log);
+	/* Now be sure of data access consistency : give the label the same order as the db */
+	return dao_logsys_sync_label(log);
 }
 
 /*
@@ -514,12 +514,12 @@ int sqlite_logdata_reconfig(LogLabel *oldLabel, LogSystem *log)
  * and that user-fields of same type get next to each other (reduces slack).
  */
 
-static int sqlite_sorter_f(const void *a,const void *b)
+static int dao_sorter_f(const void *a,const void *b)
 {
 	return (strcmp(((LogField *)a)->name.string, ((LogField *)b)->name.string));
 }
 
-int sqlite_logsys_sortfieldnames(LogLabel *label)
+int dao_logsys_sortfieldnames(LogLabel *label)
 {
 	LogLabel *unsorted;
 	LogField *f;
@@ -527,7 +527,7 @@ int sqlite_logsys_sortfieldnames(LogLabel *label)
 
 	/* Make a copy of the field-array.
 	 * Scan the field-array for each possible type. */
-	unsorted = sqlite_loglabel_alloc(LABELSIZE(label));
+	unsorted = dao_loglabel_alloc(LABELSIZE(label));
 	memcpy(unsorted, label, LABELSIZE(label));
 	n = 0;
 
@@ -553,13 +553,13 @@ int sqlite_logsys_sortfieldnames(LogLabel *label)
 		/* Sort the fieldnames. */
 		label->types[type].start = start;
 		label->types[type].end = n;
-		qsort(&label->fields[start], n - start, sizeof(label->fields[0]), sqlite_sorter_f);
+		qsort(&label->fields[start], n - start, sizeof(label->fields[0]), dao_sorter_f);
 	}
-	sqlite_loglabel_free(unsorted);
+	dao_loglabel_free(unsorted);
     return 0;
 }
 
-LogLabel * sqlite_logsys_arrangefields(LogField *fields, int onRebuild)
+LogLabel * dao_logsys_arrangefields(LogField *fields, int onRebuild)
 {
 	LogLabel *label;
 	LogField *f, *f2;
@@ -634,7 +634,7 @@ LogLabel * sqlite_logsys_arrangefields(LogField *fields, int onRebuild)
 
 	/* do NOT sort when doing reconfig (aka logcreate -R) */
 	if (onRebuild != 1)
-		sqlite_logsys_sortfieldnames(label);
+		dao_logsys_sortfieldnames(label);
 
 	for (f = label->fields; f->type; ++f)
     {

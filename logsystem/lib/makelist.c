@@ -10,7 +10,7 @@
 	Reading and writing logsystem stuff.
 ========================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: makelist.c 47371 2013-10-21 13:58:37Z cdemory $")
+MODULE("@(#)TradeXpress $Id: makelist.c 55487 2020-05-06 08:56:27Z jlebiannic $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 03.10.94/JN	Created.
@@ -22,9 +22,10 @@ MODULE("@(#)TradeXpress $Id: makelist.c 47371 2013-10-21 13:58:37Z cdemory $")
 #include <stdio.h>
 #include <sys/types.h>
 
-#include "logsystem.sqlite.h"
+#include "logsystem.dao.h"
+#include "daservice.h"
 
-LogEntry **sqlite_logsys_makelist(LogSystem *log, LogFilter *lf)
+LogEntry **dao_logsys_makelist(LogSystem *log, LogFilter *lf)
 {
 	LogEntry **entries;
     LogIndex *indexes;
@@ -32,7 +33,9 @@ LogEntry **sqlite_logsys_makelist(LogSystem *log, LogFilter *lf)
 
     /* retrieve the indexes comforming to the filter 
      * allocation of indexes is done here */
-    matchingIndexes = log_sqlitereadbufsfiltered(log, &indexes, lf);
+    // Jira TX-3199 DAO
+	// matchingIndexes = log_daoreadbufsfiltered(log, &indexes, lf);
+	matchingIndexes = Service_findEntries(log, &indexes, lf);
 
     if (matchingIndexes <= 0)
     {
@@ -45,13 +48,13 @@ LogEntry **sqlite_logsys_makelist(LogSystem *log, LogFilter *lf)
     indexes[matchingIndexes] = 0;
 
 	/* allocate just what needed */
-	entries = sqlite_log_malloc((matchingIndexes + 1) * sizeof(*entries));
+	entries = dao_log_malloc((matchingIndexes + 1) * sizeof(*entries));
 
 	/* populate */
 	matchingIndexes = 0;
     while (indexes[matchingIndexes] != 0)
     {
-        entries[matchingIndexes] = sqlite_logentry_readindex(log,indexes[matchingIndexes]);
+        entries[matchingIndexes] = dao_logentry_readindex(log,indexes[matchingIndexes]);
         matchingIndexes++;
     }
     

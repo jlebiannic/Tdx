@@ -2,7 +2,7 @@
 #include <string.h>
 #include "data-access/commons/commons.h"
 #include "logsystem.definitions.h"
-#include "logsystem.sqlite.h"
+#include "logsystem.dao.h"
 #include "logsystem.h"
 
 static void buildFilterAndValues(char **pSqlStatement, LogFilter *lf, char **values, int *nbValues);
@@ -13,7 +13,7 @@ static int getLimit(LogFilter *lf);
 static int isNoPageCount();
 static const char* strPrefixColName(const char *name);
 static const char* getOpString(int opValue);
-static char* sqlite_wildcard(FilterRecord *f, char *p_text);
+static char* dao_wildcard(FilterRecord *f, char *p_text);
 static void buildEntry(LogEntry *entry, int i);
 
 static int MAXCOUNT = 100000;
@@ -57,7 +57,7 @@ int Service_findEntry(LogEntry *entry) {
 	const char queryFormat[] = "SELECT %s.* FROM %s WHERE TX_INDEX=$1";
 	char *query = allocStr(queryFormat, table, table);
 
-	sqlite_debug_logsys_warning(entry->logsys, "SQL Statement : %s", query);
+	dao_debug_logsys_warning(entry->logsys, "SQL Statement : %s", query);
 
 	char *idxAsStr = uitoa(entry->idx);
 	const char *queryParamValues[1] = { idxAsStr };
@@ -75,7 +75,7 @@ int Service_findEntry(LogEntry *entry) {
 	free(query);
 	dao->clearResult(dao);
 
-	sqlite_debug_logsys_warning(entry->logsys, "Single Read Operation return : %d", result);
+	dao_debug_logsys_warning(entry->logsys, "Single Read Operation return : %d", result);
 	return result;
 }
 
@@ -92,10 +92,10 @@ static int buildIndexes(LogSystem *log, LogIndex **pIndexes, LogFilter *lf) {
 
 	if (max_count != -1) /* fix maximum of entries */
 	{
-		*pIndexes = sqlite_log_malloc((max_count + 1) * sizeof(**pIndexes));
+		*pIndexes = dao_log_malloc((max_count + 1) * sizeof(**pIndexes));
 	} else /* may vary accordingly to the number of entries */
 	{
-		*pIndexes = sqlite_log_malloc((MAXCOUNT + 1) * sizeof(**pIndexes));
+		*pIndexes = dao_log_malloc((MAXCOUNT + 1) * sizeof(**pIndexes));
 	}
 
 	log->indexes_count = 0;
@@ -106,7 +106,7 @@ static int buildIndexes(LogSystem *log, LogIndex **pIndexes, LogFilter *lf) {
 			if ((max_count == -1) && (numberOfResults > MAXCOUNT)) {
 				/* XXX should we check this against MAX_INT ??? */
 				MAXCOUNT = MAXCOUNT * 2;
-				*pIndexes = (LogIndex*) sqlite_log_realloc(*pIndexes, (MAXCOUNT + 1) * sizeof(**pIndexes));
+				*pIndexes = (LogIndex*) dao_log_realloc(*pIndexes, (MAXCOUNT + 1) * sizeof(**pIndexes));
 			}
 			if (numberOfRowRead >= offset) {
 				(*pIndexes)[numberOfResults] = dao->getFieldValueAsInt(dao, "tx_index");
@@ -252,9 +252,8 @@ static void buildFilterAndValues(char **pSqlStatement, LogFilter *lf, char **val
 						cpt++;
 						break;
 					case FIELD_TEXT:
-						// p_text = sqlite3_mprintf("%q", sqlite_wildcard(f, p->text));
-						p_text = sqlite_wildcard(f, p->text);
-						// TODO use PQescapeLiteral insteadof sqlite_wildcard (=> tests)
+						p_text = dao_wildcard(f, p->text);
+						// TODO use PQescapeLiteral insteadof dao_wildcard (=> tests)
 					ioffset += sprintf(*pSqlStatement + ioffset, "%s $", getOpString(f->op));
 						arrayAddElement(values, p_text, cpt, TRUE, TRUE);
 						cpt++;
@@ -346,7 +345,7 @@ static int calculateFilterLen(LogFilter *lf) {
 	return sqlStatementSize;
 }
 
-static char* sqlite_wildcard(FilterRecord *f, char *p_text) {
+static char* dao_wildcard(FilterRecord *f, char *p_text) {
 	/* Translate wildcard and joker */
 	static char *workstr = NULL;
 	int wildcard_ok = 0;

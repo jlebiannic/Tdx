@@ -1,5 +1,5 @@
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: logcreate.c 55239 2019-11-19 13:50:31Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: logcreate.c 55499 2020-05-07 16:25:38Z jlebiannic $")
 /*========================================================================
  * Record all changes here and update the above string accordingly.
  * TX-3123 - 10.07.2019 - Olivier REMAUD - UNICODE adaptation
@@ -14,12 +14,10 @@ MODULE("@(#)TradeXpress $Id: logcreate.c 55239 2019-11-19 13:50:31Z sodifrance $
 #include <unistd.h>
 #endif
 
-#include "logsystem/lib/logsystem.h"
+#include "logsystem/lib/logsystem.dao.h"
 #include "translator/translator.h"
 
 #include "build.h"
-
-extern int tr_useSQLiteLogsys;
 
 /* dummy variables */
 double tr_errorLevel = 0;
@@ -41,7 +39,7 @@ void bail_out(char *fmt, ...)
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
 	if (errno)
-		fprintf(stderr, " (%d,%s)\n", errno, syserr_string(errno));
+		fprintf(stderr, " (%d,%s)\n", errno, dao_syserr_string(errno));
 	exit(1);
 }
 
@@ -66,7 +64,7 @@ static char * find_last_sep(char *path)
 
 static char * str4dup(char *a,char *b,char *c,char *d)
 {
-	char *s = log_malloc(strlen(a) + strlen(b) + strlen(c) + strlen(d) + 1);
+	char *s = dao_log_malloc(strlen(a) + strlen(b) + strlen(c) + strlen(d) + 1);
 	strcpy(s, a);
 	strcat(s, b);
 	strcat(s, c);
@@ -90,8 +88,6 @@ main(int argc, char **argv)
 
 	tr_UseLocaleUTF8();
 
-    /* sqlite mode only */
-    tr_useSQLiteLogsys = 1;
     cmd = strdup(argv[0]);
 	opterr = 0;
 	while ((c = getopt(argc, argv, "h:s:f:NqrRC")) != -1)
@@ -107,7 +103,7 @@ main(int argc, char **argv)
 	-N (Dont actually create/reconfig system)\n\
 	-r In the RARE case you have exhausted all the unique indexes, reset the base counter (consider deep cleaning the base before this)\n\
 	-R reread cfgfile for a base (allow ONLY resizing or adding fields, need 5.0.5+ install)\n\
-	-C check consistency (of sqlite affinities with cfgfile)\n\
+	-C check consistency (of base affinities with cfgfile)\n\
 ");
 			exit(2);
 		case 's': Sysname = optarg; break;
@@ -164,7 +160,7 @@ main(int argc, char **argv)
 
     if (resetBase == 1)
     {
-        logsys_resetindex(Sysname);
+        dao_logsys_resetindex(Sysname);
     }
     else
     {

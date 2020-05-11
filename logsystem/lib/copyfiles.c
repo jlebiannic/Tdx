@@ -10,7 +10,7 @@
 	Copying supplemental files between entries.
 ========================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: copyfiles.c 47371 2013-10-21 13:58:37Z cdemory $")
+MODULE("@(#)TradeXpress $Id: copyfiles.c 55487 2020-05-06 08:56:27Z jlebiannic $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 04.12.97/JN	Created.
@@ -37,11 +37,11 @@ MODULE("@(#)TradeXpress $Id: copyfiles.c 47371 2013-10-21 13:58:37Z cdemory $")
 #include <stdio.h>
 
 #include "private.h"
-#include "logsystem.sqlite.h"
+#include "logsystem.dao.h"
 
 #include "port.h"
 
-int sqlite_logentry_copyfiles(LogEntry *src, LogEntry *dst)
+int dao_logentry_copyfiles(LogEntry *src, LogEntry *dst)
 {
 #ifdef MACHINE_WNT
 	HANDLE dirp;
@@ -58,8 +58,8 @@ int sqlite_logentry_copyfiles(LogEntry *src, LogEntry *dst)
 	char srcpath[1025];
 	char dstpath[1025];
 
-	strcpy(srcpath, sqlite_logsys_filepath(src->logsys, LSFILE_FILES));
-	strcpy(dstpath, sqlite_logsys_filepath(dst->logsys, LSFILE_FILES));
+	strcpy(srcpath, dao_logsys_filepath(src->logsys, LSFILE_FILES));
+	strcpy(dstpath, dao_logsys_filepath(dst->logsys, LSFILE_FILES));
 
 	srcbase = srcpath + strlen(srcpath);
 	dstbase = dstpath + strlen(dstpath);
@@ -98,7 +98,7 @@ int sqlite_logentry_copyfiles(LogEntry *src, LogEntry *dst)
 			sprintf(srcbase, "/%s/%d", dname, src->idx);
 			sprintf(dstbase, "/%s/%d", dname, dst->idx);
 
-			rv += sqlite_docopy(src, srcpath, dst, dstpath);
+			rv += dao_docopy(src, srcpath, dst, dstpath);
 		}
 #ifdef MACHINE_WNT
 		while (FindNextFile(dirp, &dp));
@@ -137,7 +137,7 @@ int sqlite_logentry_copyfiles(LogEntry *src, LogEntry *dst)
 			} else {
 				sprintf(dstbase, "/%d", dst->idx);
 			}
-			rv += sqlite_docopy(src, srcpath, dst, dstpath);
+			rv += dao_docopy(src, srcpath, dst, dstpath);
 		}
 #ifdef MACHINE_WNT
 		while (FindNextFile(dirp, &dp));
@@ -153,7 +153,7 @@ int sqlite_logentry_copyfiles(LogEntry *src, LogEntry *dst)
 
 /* /bin/cp really - give warning and return 1 on error. */
 
-int sqlite_docopy(LogEntry *src, char *srcpath, LogEntry *dst, char *dstpath)
+int dao_docopy(LogEntry *src, char *srcpath, LogEntry *dst, char *dstpath)
 {
 #ifdef MACHINE_WNT
 	int dirfix = 1;
@@ -222,7 +222,7 @@ again:
 		if (errno == ENOENT)
 			return (0);
 
-		sqlite_logsys_warning(src->logsys, "file %s: %s", srcpath, sqlite_syserr_string(errno));
+		dao_logsys_warning(src->logsys, "file %s: %s", srcpath, dao_syserr_string(errno));
 		goto err;
 	}
 again:
@@ -241,7 +241,7 @@ again:
 			}
 			errno = ENOENT;
 		}
-		sqlite_logsys_warning(dst->logsys, "file %s: %s", dstpath, sqlite_syserr_string(errno));
+		dao_logsys_warning(dst->logsys, "file %s: %s", dstpath, dao_syserr_string(errno));
 		goto err;
 	}
 	while ((cc = read(fi, buf, sizeof(buf))) > 0)
@@ -253,14 +253,14 @@ again:
 			saverr = errno;
 			unlink(dstpath);
 			errno = saverr;
-			sqlite_logsys_warning(dst->logsys, "file %s: %s", dstpath, sqlite_syserr_string(errno));
+			dao_logsys_warning(dst->logsys, "file %s: %s", dstpath, dao_syserr_string(errno));
 			goto err;
 		}
 	}
 	if (cc != 0)
     {
 		/* Very rare... */
-		sqlite_logsys_warning(src->logsys, "file %s: %s", srcpath, sqlite_syserr_string(errno));
+		dao_logsys_warning(src->logsys, "file %s: %s", srcpath, dao_syserr_string(errno));
 		goto err;
 	}
 	if (close(fo))
@@ -268,7 +268,7 @@ again:
 		saverr = errno;
 		unlink(dstpath);
 		errno = saverr;
-		sqlite_logsys_warning(dst->logsys, "file %s: %s", dstpath, sqlite_syserr_string(errno));
+		dao_logsys_warning(dst->logsys, "file %s: %s", dstpath, dao_syserr_string(errno));
 		goto err;
 	}
 	close(fi);

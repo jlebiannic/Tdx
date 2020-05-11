@@ -10,7 +10,7 @@
 	Routines to create/destroy logentries.
 ========================================================================*/
 #include "conf/config.h"
-MODULE("@(#)TradeXpress $Id: allocation.c 55415 2020-03-04 18:11:43Z jlebiannic $")
+MODULE("@(#)TradeXpress $Id: allocation.c 55487 2020-05-06 08:56:27Z jlebiannic $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 03.10.94/JN	Created.
@@ -23,45 +23,44 @@ MODULE("@(#)TradeXpress $Id: allocation.c 55415 2020-03-04 18:11:43Z jlebiannic 
 #include <stddef.h>
 #include <stdio.h>
 
-#include "logsystem.sqlite.h"
-#include "dastub.h"
+#include "logsystem.dao.h"
 
-LogEntry *sqlite_logentry_new(LogSystem *log)
+LogEntry *dao_logentry_new(LogSystem *log)
 {
 	LogIndex idx;
 	LogEntry *entry;
 
-	sqlite_logsys_trace(log, "creating a new entry");
+	dao_logsys_trace(log, "creating a new entry");
 
 	/* Pick up a new entry in the database and ask her the new index */
-	/* Jira TX-3199 DAO: stub dao/sqlite */
-	idx = dao_logentry_new(log);
+	/* Jira TX-3199 DAO */
+	idx = log->dao->newEntry(log->dao, log->table);
 
 	if (idx == 0) 
 		return NULL;
 
 	/* clean allocation (record zeroed) */
-	entry = sqlite_logentry_alloc(log, idx);
+	entry = dao_logentry_alloc(log, idx);
 
 	/* we've got an index so we have a new entry */
-	sqlite_logsys_trace(log, "new index %d ok", idx);
+	dao_logsys_trace(log, "new index %d ok", idx);
 	/* update timestamps */ 
-	sqlite_logentry_settimebyname(entry,"CREATED",sqlite_log_curtime());
-	sqlite_logentry_settimebyname(entry,"MODIFIED",sqlite_log_curtime());
+	dao_logentry_settimebyname(entry,"CREATED",dao_log_curtime());
+	dao_logentry_settimebyname(entry,"MODIFIED",dao_log_curtime());
 
 	return (entry);
 }
 
-int sqlite_logentry_destroy(LogEntry *entry)
+int dao_logentry_destroy(LogEntry *entry)
 {
 	LogIndex idx = entry->idx;
 
     /* what we are about to do */
-	sqlite_logsys_trace(entry->logsys, "destroying entry %d", idx);
+	dao_logsys_trace(entry->logsys, "destroying entry %d", idx);
     /* real remove in the database */
-    logentry_sqlite_destroy(entry);
+    logentry_dao_destroy(entry);
     /* no matter the result, free the memory entry */
-	sqlite_logentry_free(entry);
+	dao_logentry_free(entry);
     
     return 0;
 }

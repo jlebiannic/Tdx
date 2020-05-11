@@ -10,7 +10,7 @@
 
 	Printing logentries.
 ========================================================================*/
-static char *version = "@(#)TradeXpress $Id: printstuff.c 55239 2019-11-19 13:50:31Z sodifrance $";
+static char *version = "@(#)TradeXpress $Id: printstuff.c 55487 2020-05-06 08:56:27Z jlebiannic $";
 static char *uname = UNAME;
 extern char *liblogsystem_version;
 static char **lib = &liblogsystem_version;
@@ -30,10 +30,10 @@ static char **lib = &liblogsystem_version;
 #include <sys/types.h>
 
 #include "logsystem.h"
-#include "logsystem.sqlite.h"
+#include "logsystem.dao.h"
 #include "runtime/tr_prototypes.h"
 
-char * sqlite_logfield_typename(int type)
+char * dao_logfield_typename(int type)
 {
 	switch (type)
     {
@@ -53,7 +53,7 @@ char * sqlite_logfield_typename(int type)
 	}
 }
 
-int sqlite_logentry_printfield(FILE *fp, LogEntry *entry, LogField *f, char *fmt)
+int dao_logentry_printfield(FILE *fp, LogEntry *entry, LogField *f, char *fmt)
 {
 	void *value = &entry->record_buffer[f->offset];
 
@@ -67,13 +67,13 @@ int sqlite_logentry_printfield(FILE *fp, LogEntry *entry, LogField *f, char *fmt
         case FIELD_INDEX:   return (tr_mbFprintf(fp, fmt, *(LogIndex *) value));
         case FIELD_NUMBER:  return (tr_mbFprintf(fp, fmt, *(Number *) value));
         case FIELD_TEXT:    {
-				char *testFmt = (char*) log_malloc( 64 * sizeof(char) );
+				char *testFmt = (char*) dao_log_malloc( 64 * sizeof(char) );
 				sprintf( testFmt, "%%-%d.%ds", f->size - 1, f->size - 1 );
 				if ( strcmp( fmt, testFmt ) == 0 ) {
 					/* format is used for right padding, but fprintf does not work right with UTF-8 strings */
 					/* do the padding by hand */
 					free( testFmt );
-					char *tmp = (char *) log_malloc( f->size * sizeof(char) * 4 ); /* allow for 4 bytes unicode chars */
+					char *tmp = (char *) dao_log_malloc( f->size * sizeof(char) * 4 ); /* allow for 4 bytes unicode chars */
 					mbsncpypad( tmp, (char *)value, f->size - 1, ' ' );
 					int res = tr_mbFprintf(fp, "%s", tmp);
 					free( tmp );
@@ -88,19 +88,19 @@ int sqlite_logentry_printfield(FILE *fp, LogEntry *entry, LogField *f, char *fmt
 	}
 }
 
-int sqlite_logfield_printheader(FILE *fp, LogField *f)
+int dao_logfield_printheader(FILE *fp, LogField *f)
 {
 	return (tr_mbFprintf(fp, "%s", f->header.string));
 }
 
-void sqlite_logheader_printbyformat_env(FILE *fp, PrintFormat *pf)
+void dao_logheader_printbyformat_env(FILE *fp, PrintFormat *pf)
 {
 	tr_mbFprintf(fp, "Env");
 	tr_mbFprintf(fp,"%s",(pf->separator?pf->separator:" "));
-	sqlite_logheader_printbyformat(fp, pf);
+	dao_logheader_printbyformat(fp, pf);
 }
 
-void sqlite_logheader_printbyformat(FILE *fp, PrintFormat *pf)
+void dao_logheader_printbyformat(FILE *fp, PrintFormat *pf)
 {
 	FormatRecord *r;
 	int cc, n = 0;
@@ -113,7 +113,7 @@ void sqlite_logheader_printbyformat(FILE *fp, PrintFormat *pf)
 		}
 		cc = 0;
 		if (r->field) {
-			cc = sqlite_logfield_printheader(fp, r->field);
+			cc = dao_logfield_printheader(fp, r->field);
 		}
 		while (cc++ < r->width) {
 			tr_mbFputs(" ", fp);
@@ -122,13 +122,13 @@ void sqlite_logheader_printbyformat(FILE *fp, PrintFormat *pf)
 	tr_mbFputs("\n", fp);
 }
 
-void sqlite_logentry_printbyformat(FILE *fp, LogEntry *entry, PrintFormat *pf)
+void dao_logentry_printbyformat(FILE *fp, LogEntry *entry, PrintFormat *pf)
 {
 	FormatRecord *r;
 	int cc, n = 0;
 
 	if (pf->logsys_compiled_to != entry->logsys) {
-		sqlite_logsys_compileprintform(entry->logsys, pf);
+		dao_logsys_compileprintform(entry->logsys, pf);
 	}
 
 	for (r = pf->formats; r < &pf->formats[pf->format_count]; ++r)
@@ -138,7 +138,7 @@ void sqlite_logentry_printbyformat(FILE *fp, LogEntry *entry, PrintFormat *pf)
 		}
 		cc = 0;
 		if (r->field) {
-			cc = sqlite_logentry_printfield(fp, entry, r->field, r->format);
+			cc = dao_logentry_printfield(fp, entry, r->field, r->format);
 		}
 		while (!pf->is_namevalue && cc++ < r->width) {
 			tr_mbFputs(" ", fp);
@@ -149,13 +149,13 @@ void sqlite_logentry_printbyformat(FILE *fp, LogEntry *entry, PrintFormat *pf)
 	}
 }
 
-int sqlite_logsys_printheaderbynames(FILE *fp, LogSystem *log, char **names)
+int dao_logsys_printheaderbynames(FILE *fp, LogSystem *log, char **names)
 {
 	LogField *fields[256];
 	unsigned int i, n;
 
 	for (n = 0; n < SIZEOF(fields) && names[n]; ++n)
-		fields[n] = sqlite_logsys_getfield(log, names[n]);
+		fields[n] = dao_logsys_getfield(log, names[n]);
 
 	for (i = 0; i < n; ++i)
     {
@@ -163,20 +163,20 @@ int sqlite_logsys_printheaderbynames(FILE *fp, LogSystem *log, char **names)
 			tr_mbFputs(" ", fp);
 		}
 		if (fields[i]) {
-			sqlite_logfield_printheader(fp, fields[i]);
+			dao_logfield_printheader(fp, fields[i]);
 		}
 	}
 	tr_mbFputs("\n", fp);
     return 0;
 }
 
-int sqlite_logentry_printbynames(FILE *fp, LogEntry *entry, char **names)
+int dao_logentry_printbynames(FILE *fp, LogEntry *entry, char **names)
 {
 	LogField *fields[256];
 	unsigned int i, n;
 
 	for (n = 0; n < SIZEOF(fields) && names[n]; ++n)
-		fields[n] = sqlite_logsys_getfield(entry->logsys, names[n]);
+		fields[n] = dao_logsys_getfield(entry->logsys, names[n]);
 
 	for (i = 0; i < n; ++i)
     {
@@ -184,7 +184,7 @@ int sqlite_logentry_printbynames(FILE *fp, LogEntry *entry, char **names)
 			tr_mbFputs(" ", fp);
 		}
 		if (fields[i]) {
-			sqlite_logentry_printfield(fp, entry, fields[i], NULL);
+			dao_logentry_printfield(fp, entry, fields[i], NULL);
 		}
 	}
 	tr_mbFputs("\n", fp);
@@ -199,7 +199,7 @@ static FormatRecord default_format_records[] = {
 
 static PrintFormat default_format = { default_format_records, SIZEOF(default_format_records), 0, 256, NULL, 0, ""};
 
-static int sqlite_logheader_addfield(char **hp, int *sizep, int offset, LogField *f)
+static int dao_logheader_addfield(char **hp, int *sizep, int offset, LogField *f)
 {
 	int pad = 0, len = strlen(f->header.string);
 	char *cp;
@@ -235,7 +235,7 @@ static int sqlite_logheader_addfield(char **hp, int *sizep, int offset, LogField
 	while (offset + len + pad + 1 >= *sizep)
     {
 		*sizep += 64;
-		*hp = sqlite_log_realloc(*hp, *sizep);
+		*hp = dao_log_realloc(*hp, *sizep);
 	}
 	cp = *hp + offset;
 
@@ -247,7 +247,7 @@ static int sqlite_logheader_addfield(char **hp, int *sizep, int offset, LogField
 }
 
 /* Requires a call to compilefilter ! */
-char * sqlite_logsys_buildheader(LogSystem *ls, PrintFormat *pf)
+char * dao_logsys_buildheader(LogSystem *ls, PrintFormat *pf)
 {
 	FormatRecord *f;
 	char *header;
@@ -258,10 +258,10 @@ char * sqlite_logsys_buildheader(LogSystem *ls, PrintFormat *pf)
 	}
 
 	if (pf->logsys_compiled_to != ls) {
-		sqlite_logsys_compileprintform(ls, pf);
+		dao_logsys_compileprintform(ls, pf);
 	}
 
-	header = sqlite_log_malloc(pf->estimated_linelen);
+	header = dao_log_malloc(pf->estimated_linelen);
 	offset = 0;
 
 	for (f = pf->formats; f < &pf->formats[pf->format_count]; ++f)
@@ -269,12 +269,12 @@ char * sqlite_logsys_buildheader(LogSystem *ls, PrintFormat *pf)
 		if (!f->field) {
 			continue;
 		}
-		offset = sqlite_logheader_addfield(&header, &pf->estimated_linelen, offset, f->field);
+		offset = dao_logheader_addfield(&header, &pf->estimated_linelen, offset, f->field);
 	}
 	return (header);
 }
 
-static int sqlite_logline_addfield(char **lp, int offset, LogEntry *entry, LogField *f)
+static int dao_logline_addfield(char **lp, int offset, LogEntry *entry, LogField *f)
 {
 	void *value = &entry->record_buffer[f->offset];
 	char *fmt = f->format.string;
@@ -300,7 +300,7 @@ static int sqlite_logline_addfield(char **lp, int offset, LogEntry *entry, LogFi
 /* Return a string representation of the entry,
  * fields from filter.
  * Requires a call to compilefilter ! */
-char * sqlite_logentry_buildline(LogEntry *entry, PrintFormat *pf)
+char * dao_logentry_buildline(LogEntry *entry, PrintFormat *pf)
 {
 	FormatRecord *f;
 	char *line;
@@ -312,10 +312,10 @@ char * sqlite_logentry_buildline(LogEntry *entry, PrintFormat *pf)
 	}
 
 	if (pf->logsys_compiled_to != ls) {
-		sqlite_logsys_compileprintform(ls, pf);
+		dao_logsys_compileprintform(ls, pf);
 	}
 
-	line = sqlite_log_malloc(pf->estimated_linelen + 1);
+	line = dao_log_malloc(pf->estimated_linelen + 1);
 	offset = 0;
 
 	for (f = pf->formats; f < &pf->formats[pf->format_count]; ++f)
@@ -323,16 +323,16 @@ char * sqlite_logentry_buildline(LogEntry *entry, PrintFormat *pf)
 		if (!f->field) {
 			continue;
 		}
-		offset = sqlite_logline_addfield(&line, offset, entry, f->field);
+		offset = dao_logline_addfield(&line, offset, entry, f->field);
 	}
 	line[offset] = 0;
-	line = sqlite_log_realloc(line, offset + 2);
+	line = dao_log_realloc(line, offset + 2);
 
 	return (line);
 }
 
 /*JRE 06.15 BG-81*/
-int sqlite_logentry_printfield_env(FILE *fp, LogEntryEnv *entry, LogField *f, char *fmt)
+int dao_logentry_printfield_env(FILE *fp, LogEntryEnv *entry, LogField *f, char *fmt)
 {
 	int retour;
 	
@@ -355,14 +355,14 @@ int sqlite_logentry_printfield_env(FILE *fp, LogEntryEnv *entry, LogField *f, ch
 	return retour;
 }
 
-void sqlite_logentry_printbyform_env(FILE *fp, LogEntryEnv *entry, PrintFormat *pf)
+void dao_logentry_printbyform_env(FILE *fp, LogEntryEnv *entry, PrintFormat *pf)
 {
 	FormatRecord *r;
 	int cc, n = 0;
 	char * env;
 
 	if (pf->logsys_compiled_to != entry->logsys) {
-		sqlite_logsys_compileprintform(entry->logsys, pf);
+		dao_logsys_compileprintform(entry->logsys, pf);
 	}
 
 	env = strtok(entry->idx,".");
@@ -378,7 +378,7 @@ void sqlite_logentry_printbyform_env(FILE *fp, LogEntryEnv *entry, PrintFormat *
 		}
 		cc = 0;
 		if (r->field) {
-			cc = sqlite_logentry_printfield_env(fp, entry, r->field, r->format);
+			cc = dao_logentry_printfield_env(fp, entry, r->field, r->format);
 		}
 		while (!pf->is_namevalue && cc++ < r->width)
 			tr_mbFputs(" ", fp);

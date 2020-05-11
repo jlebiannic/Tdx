@@ -9,7 +9,7 @@
   Jira TX-3143 19.11.2019 - Olivier REMAUD - Passage au 64 bits
 !---------------------------------------------------------------------------------------------------------*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tx_sqlite.c 55436 2020-03-24 15:29:34Z jlebiannic $")
+MODULE("@(#)TradeXpress $Id: tx_sqlite.c 55487 2020-05-06 08:56:27Z jlebiannic $")
 #include "runtime/tr_constants.h"
 #include <stdio.h>
 #include <fcntl.h>
@@ -18,7 +18,7 @@ MODULE("@(#)TradeXpress $Id: tx_sqlite.c 55436 2020-03-24 15:29:34Z jlebiannic $
 #include <stdlib.h>
 
 #include "logsystem.h"
-#include "logsystem.sqlite.h"
+#include "logsystem.dao.h"
 #include "port.h"
 #include "runtime/tr_prototypes.h"
 
@@ -37,8 +37,8 @@ MODULE("@(#)TradeXpress $Id: tx_sqlite.c 55436 2020-03-24 15:29:34Z jlebiannic $
 static int numberOfRowRead = 0;
 static int maxcount = 100000;
 
-int sqlite_logsys_opendata(LogSystem *log);
-int sqlite_loglabel_free(LogLabel *lab);
+int dao_logsys_opendata(LogSystem *log);
+int dao_loglabel_free(LogLabel *lab);
 bool check_filter_env(LogFilter *lf, char *env);
 
 #define MAX_OP_SIZE 8
@@ -163,20 +163,20 @@ static const char* strPrefixColName(const char *name)
 	}
 }
 
-static int sqlite_singleRequest(LogSystem *log, const char* request)
+static int dao_singleRequest(LogSystem *log, const char* request)
 {
 	int returnCode = 0;
 	char *errMsg = NULL;
 
-	if (sqlite_logsys_opendata(log)) {
+	if (dao_logsys_opendata(log)) {
 		return -1;
 	}
 
 
-	sqlite_debug_logsys_warning(log, "SQL Statement : %s", request);
+	dao_debug_logsys_warning(log, "SQL Statement : %s", request);
 	if (sqlite3_exec(log->datadb_handle,request,NULL,NULL,&errMsg) != SQLITE_OK)
 	{
-		sqlite_logsys_warning(log,"%s on database failed: %s", request, sqlite3_errmsg(log->datadb_handle));
+		dao_logsys_warning(log,"%s on database failed: %s", request, sqlite3_errmsg(log->datadb_handle));
 		returnCode = -1;
 	}
 	free(errMsg);
@@ -184,15 +184,15 @@ static int sqlite_singleRequest(LogSystem *log, const char* request)
 	return returnCode;
 }
 
-static int sqlite_singleRequest_opened(LogSystem *log, const char* request)
+static int dao_singleRequest_opened(LogSystem *log, const char* request)
 {
 	int returnCode = 0;
 	char *errMsg = NULL;
 
-	sqlite_debug_logsys_warning(log, "SQL Statement : %s", request);
+	dao_debug_logsys_warning(log, "SQL Statement : %s", request);
 	if (sqlite3_exec(log->datadb_handle,request,NULL,NULL,&errMsg) != SQLITE_OK)
 	{
-		sqlite_logsys_warning(log,"%s on database failed: %s", request, sqlite3_errmsg(log->datadb_handle));
+		dao_logsys_warning(log,"%s on database failed: %s", request, sqlite3_errmsg(log->datadb_handle));
 		returnCode = -1;
 	}
 	free(errMsg);
@@ -200,7 +200,7 @@ static int sqlite_singleRequest_opened(LogSystem *log, const char* request)
 	return returnCode;
 }
 
-static char* sqlite_wildcard(FilterRecord *f,char *p_text)
+static char* dao_wildcard(FilterRecord *f,char *p_text)
 {
 	/* Translate wildcard and joker */
 	static char *workstr = NULL;
@@ -334,7 +334,7 @@ static void addSqlWhere(char **pSqlStatement, int *pIoffset, LogFilter *lf, int 
 							*pIoffset += sprintf(*pSqlStatement+*pIoffset,"%s %d",getOpString(f->op),p->integer);
 							break;
 						case FIELD_TEXT:
-							p_text = sqlite3_mprintf("%q",sqlite_wildcard(f,p->text));
+							p_text = sqlite3_mprintf("%q",dao_wildcard(f,p->text));
 							*pIoffset += sprintf(*pSqlStatement+*pIoffset,"%s '%s'",getOpString(f->op),p_text);
 
 							sqlite3_free(p_text);
@@ -354,7 +354,7 @@ static void addSqlWhere(char **pSqlStatement, int *pIoffset, LogFilter *lf, int 
 	}
 }
 
-int log_sqlitereadbufsfiltered(LogSystem *log, LogIndex **pIndexes, LogFilter *lf)
+int log_daoreadbufsfiltered(LogSystem *log, LogIndex **pIndexes, LogFilter *lf)
 {
 	/* SELECT TX_INDEX FROM data WHERE ... */
 	char *sqlStatement = NULL;
@@ -373,11 +373,11 @@ int log_sqlitereadbufsfiltered(LogSystem *log, LogIndex **pIndexes, LogFilter *l
 
 	int numberOfResults = 0;
 
-	/* logsys_sqlite_entry_count(log,lf) is too costly
+	/* logsys_dao_entry_count(log,lf) is too costly
 	 * use fixed first and realloc if necessary */
 	maxcount = 100000;
 
-	if (sqlite_logsys_opendata(log)) {
+	if (dao_logsys_opendata(log)) {
 		return -1;
 	}
 
@@ -477,7 +477,7 @@ int log_sqlitereadbufsfiltered(LogSystem *log, LogIndex **pIndexes, LogFilter *l
 		/* fin WBA-333 */
 	}
 
-	sqlite_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
+	dao_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
 
 	/* possibly all entries may match the filter
 	 * but as we store only the indexes, it is not that big.
@@ -485,7 +485,7 @@ int log_sqlitereadbufsfiltered(LogSystem *log, LogIndex **pIndexes, LogFilter *l
 
 	returnCode = sqlite3_prepare(log->datadb_handle,sqlStatement,-1,&sqlite3Statement,NULL);
 	if (returnCode != SQLITE_OK) {
-		sqlite_logsys_warning(log, "Multiple Index Read operation in sqlite database failed with error: %s", sqlite3_errmsg(log->datadb_handle));
+		dao_logsys_warning(log, "Multiple Index Read operation in sqlite database failed with error: %s", sqlite3_errmsg(log->datadb_handle));
 	}
 	free(sqlStatement);
 	sqlStatement = NULL;
@@ -495,11 +495,11 @@ int log_sqlitereadbufsfiltered(LogSystem *log, LogIndex **pIndexes, LogFilter *l
 
 	if (max_count != -1) /* fix maximum of entries */
 	{
-		*pIndexes = sqlite_log_malloc((max_count + 1) * sizeof(**pIndexes));
+		*pIndexes = dao_log_malloc((max_count + 1) * sizeof(**pIndexes));
 	}
 	else /* may vary accordingly to the number of entries */
 	{
-		*pIndexes = sqlite_log_malloc((maxcount + 1) * sizeof(**pIndexes));
+		*pIndexes = dao_log_malloc((maxcount + 1) * sizeof(**pIndexes));
 	}
 
 	if (returnCode == SQLITE_OK)
@@ -513,7 +513,7 @@ int log_sqlitereadbufsfiltered(LogSystem *log, LogIndex **pIndexes, LogFilter *l
 				{
 					/* XXX should we check this against MAX_INT ??? */
 					maxcount = maxcount * 2;
-					*pIndexes = (LogIndex *) sqlite_log_realloc(*pIndexes,(maxcount + 1) * sizeof(**pIndexes));
+					*pIndexes = (LogIndex *) dao_log_realloc(*pIndexes,(maxcount + 1) * sizeof(**pIndexes));
 				}
 				if (numberOfRowRead >= offset)
 				{
@@ -534,7 +534,7 @@ int log_sqlitereadbufsfiltered(LogSystem *log, LogIndex **pIndexes, LogFilter *l
 	}
 }
 
-int log_sqlitereadbuf(LogEntry *entry)
+int log_daoreadbuf(LogEntry *entry)
 {
 	/* SELECT data.* FROM data WHERE TX_INDEX=... */
 	char *sqlStatement = NULL;
@@ -554,13 +554,13 @@ int log_sqlitereadbuf(LogEntry *entry)
 
 	label = entry->logsys->label;
 
-	if (sqlite_logsys_opendata(entry->logsys)) {
+	if (dao_logsys_opendata(entry->logsys)) {
 		return result;
 	}
 
 
 	sqlStatement = sqlite3_mprintf("SELECT data.* FROM data WHERE TX_INDEX=%d", entry->idx);
-	sqlite_debug_logsys_warning(entry->logsys, "SQL Statement : %s", sqlStatement);
+	dao_debug_logsys_warning(entry->logsys, "SQL Statement : %s", sqlStatement);
 	returnCode = sqlite3_prepare(entry->logsys->datadb_handle,sqlStatement,-1,&sqlite3Statement,NULL);
 	sqlite3_free(sqlStatement);
 	sqlStatement = NULL;
@@ -623,11 +623,11 @@ int log_sqlitereadbuf(LogEntry *entry)
 	}
 	/* EI-325 remove statement in every case */
 	sqlite3_finalize(sqlite3Statement);
-	sqlite_debug_logsys_warning(entry->logsys, "Single Read Operation return : %d", result);
+	dao_debug_logsys_warning(entry->logsys, "Single Read Operation return : %d", result);
 	return result;
 }
 
-int log_sqlitewritebuf(LogEntry *entry,int rawmode)
+int log_daowritebuf(LogEntry *entry,int rawmode)
 {
 	/* UPDATE data SET ("..."='...',)* ("..."='...') WHERE TX_INDEX=entry->idx */
 	/* if rawmode, we do specify the index in the base, so we must add it to the request */
@@ -647,7 +647,7 @@ int log_sqlitewritebuf(LogEntry *entry,int rawmode)
 
 	log = entry->logsys;
 
-	if (sqlite_logsys_opendata(log)) {
+	if (dao_logsys_opendata(log)) {
 		return -1;
 	}
 
@@ -719,13 +719,13 @@ int log_sqlitewritebuf(LogEntry *entry,int rawmode)
 	}
 	ioffset += sprintf(sqlStatement+ioffset,"WHERE TX_INDEX=%d",entry->idx);
 
-	sqlite_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
+	dao_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
 	returnCode = sqlite3_exec(log->datadb_handle,sqlStatement,NULL,NULL,&errMsg);
 	free(sqlStatement);
 	/* EI-325 free error message memory allocation made by sqlite */
 	sqlite3_free(errMsg);
 	if (returnCode != SQLITE_OK) {
-		sqlite_logsys_warning(log, "Write operation in SQLite database failed : %s", sqlite3_errmsg(log->datadb_handle));
+		dao_logsys_warning(log, "Write operation in SQLite database failed : %s", sqlite3_errmsg(log->datadb_handle));
 	}
 
 	/* cm 07/12/2010 */
@@ -742,7 +742,7 @@ int log_sqlitewritebuf(LogEntry *entry,int rawmode)
 	}
 }
 
-unsigned int logentry_sqlite_new(LogSystem *log)
+unsigned int logentry_dao_new(LogSystem *log)
 {
 	char *sqlStatement = NULL;
 	int sqlStatementLength = 0;
@@ -759,7 +759,7 @@ unsigned int logentry_sqlite_new(LogSystem *log)
 	/* here, we take the highest (last) created index and increments it
 	* thus creating a well incremented list of entries */
 
-	if (sqlite_logsys_opendata(log)) {
+	if (dao_logsys_opendata(log)) {
 		return 0;
 	}
 
@@ -778,7 +778,7 @@ unsigned int logentry_sqlite_new(LogSystem *log)
 		  || (strcmp(log->label->fields[i].name.string,"MODIFIED") == 0)
 		   )
 		{
-			ioffset += sprintf(sqlStatement+ioffset,"%d",sqlite_log_curtime());
+			ioffset += sprintf(sqlStatement+ioffset,"%d",dao_log_curtime());
 		}
 		else
 		{
@@ -787,11 +787,11 @@ unsigned int logentry_sqlite_new(LogSystem *log)
 	}
 	ioffset += sprintf(sqlStatement+ioffset,")");
 
-	sqlite_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
+	dao_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
 	returnCode = sqlite3_exec(log->datadb_handle,sqlStatement,NULL,NULL,&errMsg);
 	free(sqlStatement);
 	if (returnCode != SQLITE_OK) {
-		sqlite_logsys_warning(log, "New entry in SQLite database failed : %s", sqlite3_errmsg(log->datadb_handle));
+		dao_logsys_warning(log, "New entry in SQLite database failed : %s", sqlite3_errmsg(log->datadb_handle));
 	}
 	/* EI-325 free error message memory allocation */
 	if (errMsg != NULL){ sqlite3_free(errMsg); }
@@ -800,7 +800,7 @@ unsigned int logentry_sqlite_new(LogSystem *log)
 	if (index > INT_MAX)
 	{
 		/* should be extremely rare and/or time spaced !!! */
-		sqlite_logsys_warning(log, "You have exhausted all the unique indexes available, consider resetting the base");
+		dao_logsys_warning(log, "You have exhausted all the unique indexes available, consider resetting the base");
 		return 0;
 	}
 
@@ -818,7 +818,7 @@ unsigned int logentry_sqlite_new(LogSystem *log)
 
 }
 
-int logentry_sqlite_destroy(LogEntry *entry)
+int logentry_dao_destroy(LogEntry *entry)
 {
 	/* DELETE FROM data WHERE TX_INDEX="" */
 	char *sqlStatement = NULL;
@@ -832,18 +832,18 @@ int logentry_sqlite_destroy(LogEntry *entry)
 
  	log = entry->logsys;
 
-	if (sqlite_logsys_opendata(log)) {
+	if (dao_logsys_opendata(log)) {
 		return -1;
 	}
 
 	sqlStatement = sqlite3_mprintf("DELETE FROM data WHERE TX_INDEX='%d'",entry->idx);
-	sqlite_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
+	dao_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
 	returnCode = sqlite3_exec(log->datadb_handle,sqlStatement,NULL,NULL,&errMsg);
 	sqlite3_free(sqlStatement);
 	sqlStatement = NULL;
 	sqlite3_free(errMsg);
 	if (returnCode != SQLITE_OK) {
-		sqlite_logsys_warning(log, "Delete operation in SQLite database failed : %s", sqlite3_errmsg(log->datadb_handle));
+		dao_logsys_warning(log, "Delete operation in SQLite database failed : %s", sqlite3_errmsg(log->datadb_handle));
 	}
 
 	/* cm 07/12/2010 */
@@ -861,7 +861,7 @@ int logentry_sqlite_destroy(LogEntry *entry)
 
 /* The request has a cost with sqlite at least
  * should be avoided if possiuble */
-int logsys_sqlite_entry_count(LogSystem *log, LogFilter *lf)
+int logsys_dao_entry_count(LogSystem *log, LogFilter *lf)
 {
 	/* SELECT COUNT(TX_INDEX) FROM data WHERE ... */
 	char *sqlStatement = NULL;
@@ -876,14 +876,14 @@ int logsys_sqlite_entry_count(LogSystem *log, LogFilter *lf)
 	int numberOfEntries = -1;
 	int returnCode = 0;
 
-	if (sqlite_logsys_opendata(log))
+	if (dao_logsys_opendata(log))
 	{
 		return -1;
 	}
 
 	if (!lf) /* no filter, return all */
 	{
-		sqlite_debug_logsys_warning(log, "SQL Statement : SELECT cnt FROM entry_count");
+		dao_debug_logsys_warning(log, "SQL Statement : SELECT cnt FROM entry_count");
 		returnCode = sqlite3_prepare(log->datadb_handle,"SELECT cnt FROM entry_count",-1,&sqlite3Statement,NULL);
 	}
 	else
@@ -950,12 +950,12 @@ int logsys_sqlite_entry_count(LogSystem *log, LogFilter *lf)
 	else
 	{
 		/* numberOfEntries == -1 */
-		sqlite_logsys_warning(log, "Count of entries operation in SQLite database failed : %s", sqlite3_errmsg(log->datadb_handle));
+		dao_logsys_warning(log, "Count of entries operation in SQLite database failed : %s", sqlite3_errmsg(log->datadb_handle));
 	}
 	return numberOfEntries;
 }
 
-int logsys_createdata_sqlite(LogSystem *log,int mode)
+int logsys_createdata_dao(LogSystem *log,int mode)
 {
 	int fd = -1;
 	char *errMsg = NULL;
@@ -974,9 +974,9 @@ int logsys_createdata_sqlite(LogSystem *log,int mode)
 	int totLen = 0;
 	
 	/* create the .sqlite datafile */
-	fd = sqlite_logsys_openfile(log, LSFILE_SQLITE, O_TRUNC | O_RDWR | O_CREAT | O_BINARY, mode);
+	fd = dao_logsys_openfile(log, LSFILE_SQLITE, O_TRUNC | O_RDWR | O_CREAT | O_BINARY, mode);
 	if (fd < 0) {
-		sqlite_logsys_warning(log,"Cannot create sqlite datafile");
+		dao_logsys_warning(log,"Cannot create sqlite datafile");
 	}
 	log->datafd = fd;
 	close(log->datafd);
@@ -989,13 +989,13 @@ int logsys_createdata_sqlite(LogSystem *log,int mode)
 		dbName = strcat(dbName, LSFILE_SQLITE);
 		toFree = 1;
 	} else {
-		dbName = sqlite_logsys_filepath(log, LSFILE_SQLITE);
+		dbName = dao_logsys_filepath(log, LSFILE_SQLITE);
 	}
 	
 	/* Let's open the new created file to write it down the database structure */
 	if (sqlite3_open(dbName, &log->datadb_handle) != SQLITE_OK)
 	{
-		sqlite_logsys_warning(log,"Cannot open database: %s", sqlite3_errmsg(log->datadb_handle));
+		dao_logsys_warning(log,"Cannot open database: %s", sqlite3_errmsg(log->datadb_handle));
 		/* EI-325 try to close correctly the database handler in case it's still used */
         ret = sqlite3_close(log->datadb_handle);
 		if ( ret != SQLITE_OK ) 
@@ -1008,7 +1008,7 @@ int logsys_createdata_sqlite(LogSystem *log,int mode)
 				cpt++;			
 			}
 			if (cpt == 4 && ret != SQLITE_OK){
-				sqlite_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
+				dao_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
 			} 		
 		}
 		log->datadb_handle = 0;
@@ -1047,10 +1047,10 @@ int logsys_createdata_sqlite(LogSystem *log,int mode)
 		ioffset += sprintf(sqlStatement+ioffset,",\"%s\" %s", f->name.string, getTypeAffinity(f->type));
 	}
 	ioffset += sprintf(sqlStatement+ioffset,")");
-	sqlite_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
+	dao_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
 	if (sqlite3_exec(log->datadb_handle,sqlStatement,NULL,NULL,&errMsg) != SQLITE_OK)
 	{
-		sqlite_logsys_warning(log, "Creation of the initial table for .sqlite datafile failed: %s", sqlite3_errmsg(log->datadb_handle));
+		dao_logsys_warning(log, "Creation of the initial table for .sqlite datafile failed: %s", sqlite3_errmsg(log->datadb_handle));
 		/* EI-325 try to close correctly the database handler in case it's still used */
         ret = sqlite3_close(log->datadb_handle);
 		if ( ret != SQLITE_OK ) 
@@ -1063,7 +1063,7 @@ int logsys_createdata_sqlite(LogSystem *log,int mode)
 				cpt++;			
 			}
 			if (cpt == 4 && ret != SQLITE_OK){
-				sqlite_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
+				dao_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
 			} 		
 		}
 		log->datadb_handle = 0;
@@ -1094,10 +1094,10 @@ BEGIN \n\
 END\
 "
 
-	sqlite_debug_logsys_warning(log, TRIGGER_DEFINITION);
+	dao_debug_logsys_warning(log, TRIGGER_DEFINITION);
 	if (sqlite3_exec(log->datadb_handle, TRIGGER_DEFINITION,NULL,NULL,&errMsg) != SQLITE_OK)
 	{
-		sqlite_logsys_warning(log, "Creation of the database update triggers failed : %s", sqlite3_errmsg(log->datadb_handle));
+		dao_logsys_warning(log, "Creation of the database update triggers failed : %s", sqlite3_errmsg(log->datadb_handle));
 		/* EI-325 try to close correctly the database handler in case it's still used */
         ret = sqlite3_close(log->datadb_handle);
 		if ( ret != SQLITE_OK ) 
@@ -1110,7 +1110,7 @@ END\
 				cpt++;			
 			}
 			if (cpt == 4 && ret != SQLITE_OK){
-				sqlite_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
+				dao_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
 			} 		
 		}
 		log->datadb_handle = 0;
@@ -1158,10 +1158,10 @@ END\
 					ioffset += sprintf(sqlStatement+ioffset,",");
 				}
 			}
-			sqlite_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
+			dao_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
 			if (sqlite3_exec(log->datadb_handle,sqlStatement,NULL,NULL,&errMsg) != SQLITE_OK)
 			{
-				sqlite_logsys_warning(log, "Creation of an SQL index failed: %s", sqlite3_errmsg(log->datadb_handle));
+				dao_logsys_warning(log, "Creation of an SQL index failed: %s", sqlite3_errmsg(log->datadb_handle));
 				/* EI-325 try to close correctly the database handler in case it's still used */
 				ret = sqlite3_close(log->datadb_handle);
 				if ( ret != SQLITE_OK ) 
@@ -1174,7 +1174,7 @@ END\
 						cpt++;			
 					}
 					if (cpt == 4 && ret != SQLITE_OK){
-						sqlite_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
+						dao_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
 					} 		
 				}
 				log->datadb_handle = 0;
@@ -1203,7 +1203,7 @@ END\
 			cpt++;			
 		}
 		if (cpt == 4 && ret != SQLITE_OK){
-			sqlite_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
+			dao_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
 		} 		
 	}
 		
@@ -1218,13 +1218,13 @@ END\
  * i.e you've got a index over MAX_INT
  * i.e. the counter use internally in the base to know the new index to be given to a new entry
  * which is given by the itself */
-void sqlite_logsys_resetindex(char *basename)
+void dao_logsys_resetindex(char *basename)
 {
 	int ret = 0;
-	LogSystem* log = sqlite_logsys_open(basename, 0644);
+	LogSystem* log = dao_logsys_open(basename, 0644);
 
-	if (sqlite_singleRequest(log,"UPDATE sqlite_sequence SET seq=1 WHERE name='data'") == -1) {
-		sqlite_logsys_warning(log, "Reset of the database failed.");
+	if (dao_singleRequest(log,"UPDATE dao_sequence SET seq=1 WHERE name='data'") == -1) {
+		dao_logsys_warning(log, "Reset of the database failed.");
 	}
 
 	/* EI-325 try to close correctly the database handler in case it's still used */
@@ -1239,22 +1239,22 @@ void sqlite_logsys_resetindex(char *basename)
 			cpt++;			
 		}
 		if (cpt == 4 && ret != SQLITE_OK){
-			sqlite_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
+			dao_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
 		} 		
 	}
 		
 	log->datadb_handle = 0;
-	sqlite_logsys_close(log);
+	dao_logsys_close(log);
 }
 
 /* alter to add a column to an already existing database */
-int log_sqlitecolumnadd(LogSystem *log,LogField* column)
+int log_daocolumnadd(LogSystem *log,LogField* column)
 {
 	char *sqlStatement = NULL;
 	char *errMsg = NULL;
 	int returnCode = 0;
 
-	if (sqlite_logsys_opendata(log)) {
+	if (dao_logsys_opendata(log)) {
 		return -1;
 	}
 
@@ -1264,10 +1264,10 @@ int log_sqlitecolumnadd(LogSystem *log,LogField* column)
 
 
 	sqlStatement = sqlite3_mprintf("ALTER TABLE data ADD \"%q\" %s", column->name.string, getTypeAffinity(column->type));
-	sqlite_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
+	dao_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
 	if (sqlite3_exec(log->datadb_handle,sqlStatement,NULL,NULL,&errMsg) != SQLITE_OK)
 	{
-		sqlite_logsys_warning(log, "Adding a column to the database failed: %s", sqlite3_errmsg(log->datadb_handle));
+		dao_logsys_warning(log, "Adding a column to the database failed: %s", sqlite3_errmsg(log->datadb_handle));
 		returnCode = -1;
 	}
 	sqlite3_free(sqlStatement);
@@ -1278,23 +1278,23 @@ int log_sqlitecolumnadd(LogSystem *log,LogField* column)
 	return returnCode;
 }
 
-int sqlite_logsys_begin_transaction(LogSystem *log)
+int dao_logsys_begin_transaction(LogSystem *log)
 {
-	return sqlite_singleRequest(log,"BEGIN");
+	return dao_singleRequest(log,"BEGIN");
 }
 
-int sqlite_logsys_end_transaction(LogSystem *log)
+int dao_logsys_end_transaction(LogSystem *log)
 {
-	return sqlite_singleRequest(log,"END");
+	return dao_singleRequest(log,"END");
 }
 
-int sqlite_logsys_rollback_transaction(LogSystem *log)
+int dao_logsys_rollback_transaction(LogSystem *log)
 {
-	return sqlite_singleRequest(log,"ROLLBACK");
+	return dao_singleRequest(log,"ROLLBACK");
 }
 
 /* this is where we check that label and sqlite db have the same fields/columns' order */
-int sqlite_logsys_sync_label(LogSystem *log)
+int dao_logsys_sync_label(LogSystem *log)
 {
 	char *errMsg = NULL;
 	char** columnNames;
@@ -1310,15 +1310,15 @@ int sqlite_logsys_sync_label(LogSystem *log)
 	LogField* oldfield = NULL;
 	LogField* newfield = NULL;
 
-	if (sqlite_logsys_opendata(log)) {
+	if (dao_logsys_opendata(log)) {
 		return -1;
 	}
 
 
-	sqlite_debug_logsys_warning(log, "SQL Statement : PRAGMA table_info(data)");
+	dao_debug_logsys_warning(log, "SQL Statement : PRAGMA table_info(data)");
 	if (sqlite3_get_table(log->datadb_handle,"PRAGMA table_info(data)",&columnNames,&nrow,&ncol,&errMsg) != SQLITE_OK)
 	{
-		sqlite_logsys_warning(log,"Column name extraction on database failed: %s", sqlite3_errmsg(log->datadb_handle));
+		dao_logsys_warning(log,"Column name extraction on database failed: %s", sqlite3_errmsg(log->datadb_handle));
 		return -1;
 	}
 	free(errMsg);
@@ -1329,7 +1329,7 @@ int sqlite_logsys_sync_label(LogSystem *log)
 	fieldmax = 64;
 	fields = (void *) malloc(fieldmax * sizeof(*fields));
 	if (fields == NULL) {
-		sqlite_logsys_warning(log,"Out of memory.");
+		dao_logsys_warning(log,"Out of memory.");
 	}
 
 
@@ -1353,13 +1353,13 @@ int sqlite_logsys_sync_label(LogSystem *log)
 					fieldmax += 32;
 					fields = (void *) realloc(fields, fieldmax * sizeof(*fields));
 					if (fields == NULL) {
-						sqlite_logsys_warning(log,"Out of memory.");
+						dao_logsys_warning(log,"Out of memory.");
 					}
 				}
 				newfield = &fields[nfields];
-				newfield->name.string   = sqlite_log_strdup(oldfield->name.string);
-				newfield->format.string = sqlite_log_strdup(oldfield->format.string);
-				newfield->header.string = sqlite_log_strdup(oldfield->header.string);
+				newfield->name.string   = dao_log_strdup(oldfield->name.string);
+				newfield->format.string = dao_log_strdup(oldfield->format.string);
+				newfield->header.string = dao_log_strdup(oldfield->header.string);
 				newfield->type = oldfield->type;
 				newfield->size = oldfield->size;
 				++nfields;
@@ -1373,17 +1373,17 @@ int sqlite_logsys_sync_label(LogSystem *log)
 	}
 	/* last field has a zero type */
 	(&fields[nfields])->type = 0;
-	sqlite_loglabel_free(oldlabel);
+	dao_loglabel_free(oldlabel);
 	sqlite3_free_table(columnNames);
 
-	log->label=sqlite_logsys_arrangefields(fields,1);
+	log->label=dao_logsys_arrangefields(fields,1);
 
 	return 0;
 }
 
 /* check whether sqlite field affinities match label field type and correct them if necessary
  * this is the case for all bases created with logcreate from [TX5.0, TX5.0.5[ */
-int sqlite_loglabel_checkaffinities(LogSystem* log)
+int dao_loglabel_checkaffinities(LogSystem* log)
 {
 	char *errMsg = NULL;
 	char** tableInfo = NULL;
@@ -1399,14 +1399,14 @@ int sqlite_loglabel_checkaffinities(LogSystem* log)
 	int sqlStatementSize = 0;
 	int ioffset = 0;
 
-	if (sqlite_logsys_opendata(log)) {
+	if (dao_logsys_opendata(log)) {
 		return -1;
 	}
 
-	sqlite_debug_logsys_warning(log, "SQL Statement : PRAGMA table_info(data)");
+	dao_debug_logsys_warning(log, "SQL Statement : PRAGMA table_info(data)");
 	if (sqlite3_get_table(log->datadb_handle,"PRAGMA table_info(data)",&tableInfo,&nrow,&ncol,&errMsg) != SQLITE_OK)
 	{
-		sqlite_logsys_warning(log,"Column type extraction on database failed: %s", sqlite3_errmsg(log->datadb_handle));
+		dao_logsys_warning(log,"Column type extraction on database failed: %s", sqlite3_errmsg(log->datadb_handle));
 		return -1;
 	}
 	free(errMsg);
@@ -1499,11 +1499,11 @@ END;"
 #undef RECREATE_HEADER
 #undef RECREATE_TRAILER
 
-		sqlite_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
+		dao_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
 		if (sqlite3_exec(log->datadb_handle,sqlStatement,NULL,NULL,&errMsg) != SQLITE_OK)
 		{
 			int ret ; 
-			sqlite_logsys_warning(log, "Synchronisation of the sqlite base affinities with the computed label failed (no modifications done): %s", sqlite3_errmsg(log->datadb_handle));
+			dao_logsys_warning(log, "Synchronisation of the sqlite base affinities with the computed label failed (no modifications done): %s", sqlite3_errmsg(log->datadb_handle));
 			/* EI-325 try to close correctly the database handler in case it's still used */
 			ret = sqlite3_close(log->datadb_handle);
 			if ( ret != SQLITE_OK ) 
@@ -1516,7 +1516,7 @@ END;"
 					cpt++;			
 				}
 				if (cpt == 4 && ret != SQLITE_OK){
-					sqlite_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
+					dao_logsys_warning(log, "Cannot close link to database : %s", sqlite3_errmsg(log->datadb_handle));
 				} 		
 			}
 			log->datadb_handle = 0;
@@ -1579,7 +1579,7 @@ static void read_line(LogSystem* log,FILE* sqlitestartupfd,char **pline/* addres
 	}
 }
 
-void sqlite_exec_at_open(LogSystem* log)
+void dao_exec_at_open(LogSystem* log)
 {
 	FILE * sqlitestartupfd = NULL;
 	char * line            = NULL;
@@ -1602,7 +1602,7 @@ void sqlite_exec_at_open(LogSystem* log)
 		dbName = strcat(dbName, LSFILE_SQLITE_STARTUP);
 		toFree = 1;
 	} else {
-		dbName = sqlite_logsys_filepath(log, LSFILE_SQLITE_STARTUP);
+		dbName = dao_logsys_filepath(log, LSFILE_SQLITE_STARTUP);
 	}
 	sqlitestartupfd = fopen(dbName, "r");
 	if (toFree) { free(dbName); }
@@ -1613,7 +1613,7 @@ void sqlite_exec_at_open(LogSystem* log)
 	read_line(log,sqlitestartupfd,&line);
 	while ((!feof(sqlitestartupfd)) && (line != NULL) && (returnCode == 0))
 	{
-		returnCode = sqlite_singleRequest_opened(log,line);
+		returnCode = dao_singleRequest_opened(log,line);
 		nstatements++;
 		read_line(log,sqlitestartupfd,&line);
 	}
@@ -1628,7 +1628,7 @@ void sqlite_exec_at_open(LogSystem* log)
 }
 
 /*JRE 06.15 BG-81*/
-int log_sqlitereadbufsfiltermultenv(LogSystem *log, LogIndexEnv **pIndexes, LogFilter *lf)
+int log_daoreadbufsfiltermultenv(LogSystem *log, LogIndexEnv **pIndexes, LogFilter *lf)
 {
 
 	/* SELECT env.TX_INDEX FROM 'env'.data WHERE ... UNION SELECT ... WHERE ... */
@@ -1669,14 +1669,14 @@ int log_sqlitereadbufsfiltermultenv(LogSystem *log, LogIndexEnv **pIndexes, LogF
 
 	int numberOfResults = 0;
 
-	/* logsys_sqlite_entry_count(log,lf) is too costly
+	/* logsys_dao_entry_count(log,lf) is too costly
 	 * use fixed first and realloc if necessary */
 	maxcount = 100000;
 	
 	logsys = log;
 	log_env = logsys->listSysname;
 	
-	if (sqlite_logsys_opendata(log)) {
+	if (dao_logsys_opendata(log)) {
 		retour = -1;
 	}
 	
@@ -1809,7 +1809,7 @@ int log_sqlitereadbufsfiltermultenv(LogSystem *log, LogIndexEnv **pIndexes, LogF
 		strcpy(url, "");
 		sprintf(url, "ATTACH database '%s/.sqlite' as '%s'", base, env);
 		writeLog(LOGLEVEL_BIGDEVEL, "requete sqlite: %s", url);
-		sqlite_debug_logsys_warning(log, "SQL Statement : %s", url);
+		dao_debug_logsys_warning(log, "SQL Statement : %s", url);
 		sqlite3_exec(log->datadb_handle,url,NULL,NULL,NULL);
 		
 		if (cpt == 0) {
@@ -1851,30 +1851,30 @@ int log_sqlitereadbufsfiltermultenv(LogSystem *log, LogIndexEnv **pIndexes, LogF
 		strcat(sqlStatement,sqlOrder);
 	}
 
-	sqlite_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
+	dao_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
 
 	/* possibly all entries may match the filter
 	 * but as we store only the indexes, it is not that big.
 	 * besides we shrink it at the end to fit the resultset. */
 	
 	writeLog(LOGLEVEL_BIGDEVEL, "requete sqlite: %s", sqlStatement);
-	sqlite_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
+	dao_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
 	returnCode = sqlite3_prepare(log->datadb_handle,sqlStatement,-1,&sqlite3Statement,NULL);
 	writeLog(LOGLEVEL_BIGDEVEL, "retour: %i", returnCode);
 
 	if (returnCode != SQLITE_OK) {
-		sqlite_logsys_warning(log, "Multiple Index Read operation in sqlite database failed with error: %s", sqlite3_errmsg(log->datadb_handle));
+		dao_logsys_warning(log, "Multiple Index Read operation in sqlite database failed with error: %s", sqlite3_errmsg(log->datadb_handle));
 	}
 
 	sqlStatement = NULL;  
 	numberOfResults = 0;
 	if (max_count != -1) /* fix maximum of entries */
 	{
-		*pIndexes = sqlite_log_malloc((max_count + 1) * sizeof(**pIndexes));
+		*pIndexes = dao_log_malloc((max_count + 1) * sizeof(**pIndexes));
 	}
 	else /* may vary accordingly to the number of entries */
 	{
-		*pIndexes = sqlite_log_malloc((maxcount + 1) * sizeof(**pIndexes));
+		*pIndexes = dao_log_malloc((maxcount + 1) * sizeof(**pIndexes));
 	}
 
 	if (returnCode == SQLITE_OK)
@@ -1889,7 +1889,7 @@ int log_sqlitereadbufsfiltermultenv(LogSystem *log, LogIndexEnv **pIndexes, LogF
 				{
 					/* XXX should we check this against MAX_INT ??? */
 					maxcount = maxcount * 2;
-					*pIndexes = (LogIndexEnv *) sqlite_log_realloc(*pIndexes,(maxcount + 1) * sizeof(**pIndexes));
+					*pIndexes = (LogIndexEnv *) dao_log_realloc(*pIndexes,(maxcount + 1) * sizeof(**pIndexes));
 				}
 
 				(*pIndexes)[numberOfResults] = strdup((char *) sqlite3_column_text(sqlite3Statement,0));
@@ -1897,7 +1897,7 @@ int log_sqlitereadbufsfiltermultenv(LogSystem *log, LogIndexEnv **pIndexes, LogF
 			}
 		}
 
-		log->indexes_count = logsys_sqlite_entry_count_env(log, lf);
+		log->indexes_count = logsys_dao_entry_count_env(log, lf);
 		sqlite3_finalize(sqlite3Statement);
 		retour = numberOfResults;
 	}
@@ -1915,7 +1915,7 @@ int log_sqlitereadbufsfiltermultenv(LogSystem *log, LogIndexEnv **pIndexes, LogF
 	
 }
 
-int sqlite_logsys_affect_sysname(LogSystem *log, LogEnv lsenv)
+int dao_logsys_affect_sysname(LogSystem *log, LogEnv lsenv)
 {
 	
 	log->listSysname = lsenv;	
@@ -1924,7 +1924,7 @@ int sqlite_logsys_affect_sysname(LogSystem *log, LogEnv lsenv)
 	
 }
 
-int log_sqlitereadbuf_env(LogEntryEnv *entry)
+int log_daoreadbuf_env(LogEntryEnv *entry)
 {
 
 	/* SELECT data.* FROM 'env'.data WHERE TX_INDEX=... */
@@ -1949,7 +1949,7 @@ int log_sqlitereadbuf_env(LogEntryEnv *entry)
 
 	label = entry->logsys->label;
 
-	if (sqlite_logsys_opendata(entry->logsys)) {
+	if (dao_logsys_opendata(entry->logsys)) {
 		retour = result;
 	}
 	temp = strtok(entry->idx, ".");
@@ -1958,7 +1958,7 @@ int log_sqlitereadbuf_env(LogEntryEnv *entry)
 	idx = strdup(temp);	
   
 	sqlStatement = sqlite3_mprintf("SELECT data.* FROM '%s'.data WHERE TX_INDEX=%s", env, idx);	
-	sqlite_debug_logsys_warning(entry->logsys, "SQL Statement : %s", sqlStatement);
+	dao_debug_logsys_warning(entry->logsys, "SQL Statement : %s", sqlStatement);
 	returnCode = sqlite3_prepare(entry->logsys->datadb_handle,sqlStatement,-1,&sqlite3Statement,NULL);
 	sqlite3_free(sqlStatement);
 	sqlStatement = NULL;
@@ -2021,13 +2021,13 @@ int log_sqlitereadbuf_env(LogEntryEnv *entry)
 		}
 	}
 	
-	sqlite_debug_logsys_warning(entry->logsys, "Single Read Operation return : %d", result);
+	dao_debug_logsys_warning(entry->logsys, "Single Read Operation return : %d", result);
 	retour = result;
 	
 	return retour;
 }
 
-int logsys_sqlite_entry_count_env(LogSystem *log, LogFilter *lf)
+int logsys_dao_entry_count_env(LogSystem *log, LogFilter *lf)
 {
 
 	/* SELECT sum(nb) FROM (SELECT COUNT(TX_INDEX) as nb FROM data WHERE ... UNION ALL SELECT ...) */
@@ -2051,7 +2051,7 @@ int logsys_sqlite_entry_count_env(LogSystem *log, LogFilter *lf)
 	int returnCode = 0;
 	int retour;
 
-	if (sqlite_logsys_opendata(log))
+	if (dao_logsys_opendata(log))
 	{
 		retour = -1;
 	}
@@ -2117,7 +2117,7 @@ int logsys_sqlite_entry_count_env(LogSystem *log, LogFilter *lf)
 		strcpy(url, "");
 		sprintf(url, "ATTACH database '%s/.sqlite' as '%s'", base, env);
 		writeLog(LOGLEVEL_BIGDEVEL, "requete sqlite: %s", url);
-		sqlite_debug_logsys_warning(log, "SQL Statement : %s", url);
+		dao_debug_logsys_warning(log, "SQL Statement : %s", url);
 		sqlite3_exec(log->datadb_handle,url,NULL,NULL,NULL);
 	
 		if (cpt == 0) {
@@ -2161,7 +2161,7 @@ int logsys_sqlite_entry_count_env(LogSystem *log, LogFilter *lf)
 	
 	if (!lf) /* no filter, return all */
 	{
-		sqlite_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
+		dao_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
 		returnCode = sqlite3_prepare(log->datadb_handle,sqlStatement,-1,&sqlite3Statement,NULL);
 	}
 	else {
@@ -2174,7 +2174,7 @@ int logsys_sqlite_entry_count_env(LogSystem *log, LogFilter *lf)
 
 		/* sql statement ready */
 		writeLog(LOGLEVEL_BIGDEVEL, "requete sqlite: %s", sqlStatement);
-		sqlite_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
+		dao_debug_logsys_warning(log, "SQL Statement : %s", sqlStatement);
 		returnCode = sqlite3_prepare(log->datadb_handle,sqlStatement,-1,&sqlite3Statement,NULL);
 		writeLog(LOGLEVEL_BIGDEVEL, "retour requete: %i", returnCode);
 		free(sqlStatement);
@@ -2189,7 +2189,7 @@ int logsys_sqlite_entry_count_env(LogSystem *log, LogFilter *lf)
 	else
 	{
 		/* numberOfEntries == -1 */
-		sqlite_logsys_warning(log, "Count of entries operation in SQLite database failed : %s", sqlite3_errmsg(log->datadb_handle));
+		dao_logsys_warning(log, "Count of entries operation in SQLite database failed : %s", sqlite3_errmsg(log->datadb_handle));
 	}
 	
 	free(sqlStatement);
@@ -2201,7 +2201,7 @@ int logsys_sqlite_entry_count_env(LogSystem *log, LogFilter *lf)
 
 /* Format of input file:
  * FIELDNAME=VALUE */
-LogEnv sqlite_logenv_read(FILE *fp)
+LogEnv dao_logenv_read(FILE *fp)
 {
 	char buf[1024];
 	char *compteur;
@@ -2227,14 +2227,14 @@ LogEnv sqlite_logenv_read(FILE *fp)
 					exit(1);
 				}
 				nouvelElement = (LogEnv)malloc(sizeof(struct logenv));
-				nouvelElement->env = sqlite_log_strdup(data);
+				nouvelElement->env = dao_log_strdup(data);
 			} else if (strstr(namedata,"BASE") != NULL) {
 				cptbase = strtol(namedata + strlen("BASE"), (char**)NULL, 10);
 				if (cptbase == 0 || cptenv != cptbase) {
 					fprintf(stderr, "Malformed file of environments\n");
 					exit(1);
 				}
-				nouvelElement->base = sqlite_log_strdup(data);
+				nouvelElement->base = dao_log_strdup(data);
 				nouvelElement->pSuivant = NULL;
 			
 				if(log_env == NULL) {
@@ -2257,7 +2257,7 @@ LogEnv sqlite_logenv_read(FILE *fp)
 }
 
 /* TX-3025 function to attach the databases in a multibase mode */
-int log_sqlite_attach_database_env(LogSystem *log){
+int log_dao_attach_database_env(LogSystem *log){
 	int returnCode = 0;
 	
 	LogEnv log_env;
@@ -2265,7 +2265,7 @@ int log_sqlite_attach_database_env(LogSystem *log){
 	LogSystem * logsys;
 	char * url;
 	
-	if (sqlite_logsys_opendata(log))
+	if (dao_logsys_opendata(log))
 	{
 		returnCode = -1;
 	}
@@ -2278,7 +2278,7 @@ int log_sqlite_attach_database_env(LogSystem *log){
 		strcpy(url, "");
 		sprintf(url, "ATTACH database '%s/.sqlite' as '%s'", base, env);
 		writeLog(LOGLEVEL_BIGDEVEL, "requete sqlite: %s", url);
-		sqlite_debug_logsys_warning(log, "SQL Statement : %s", url);
+		dao_debug_logsys_warning(log, "SQL Statement : %s", url);
 		sqlite3_exec(log->datadb_handle,url,NULL,NULL,NULL);
 		log_env = log_env->pSuivant;
 		

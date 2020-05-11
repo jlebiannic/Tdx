@@ -10,7 +10,7 @@
 	Globals etc. from lstool.
 ========================================================================*/
 /*========================================================================
-  @(#)TradeXpress $Id: lstool.h 47371 2013-10-21 13:58:37Z cdemory $
+  @(#)TradeXpress $Id: lstool.h 55487 2020-05-06 08:56:27Z jlebiannic $
   Record all changes here and update the above string accordingly.
   3.00 03.10.94/JN	Created.
 ========================================================================*/
@@ -18,9 +18,6 @@
 #ifndef _LOGSYSTEM_LSTOOL_H
 #define _LOGSYSTEM_LSTOOL_H
 
-#ifndef _BUILD_C
-#include "logsystem/lib/old_legacy/logsystem.old_legacy.h"
-#endif
 
 extern int Access_mode;
 extern int Quiet;

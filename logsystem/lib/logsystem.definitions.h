@@ -1,7 +1,7 @@
 /*========================================================================
         TradeXpress
 
-        File:		logsystem.sqlite.h
+        File:		logsystem.dao.h
         Author:		Frédéric Heulin (FH/Fredd)
         Date:		Fri Feb 17 10:53:15 CET 2006
 
@@ -9,10 +9,9 @@
 
         This file is taken from logsystem.h and has only the definitions
         that are necessary in all cases 
-        (inside/outside logsystem/lib,
-         sqlite,old_legacy inside logsystem/lib)
+        
 ==========================================================================
-  @(#)TradeXpress $Id: logsystem.definitions.h 55415 2020-03-04 18:11:43Z jlebiannic $
+  @(#)TradeXpress $Id: logsystem.definitions.h 55487 2020-05-06 08:56:27Z jlebiannic $
   Record all changes here and update the above string accordingly.
   3.00 17.02.06/FH	Copied from logsystem.h
   10.04.18 AAU (AMU) BG-198 : Extended logfilter to add env_val and env_op to implement filtering by environment in MBA mode
@@ -402,12 +401,12 @@ typedef struct logsystem {
     
     /*JRE 06.15 BG-81*/
     /******************************/
-    /* specific to sqlite	      */
+    /* specific to dao	      */
     /******************************/
     LogEnv listSysname;		/*list of logsystem names*/
     LogIndexEnv *indexesEnv;  /* list of indexes of the current research for muti base */
     /******************************/
-    /* end specific to sqlite     */
+    /* end specific to dao     */
     /******************************/
 	/*End JRE*/
 	
@@ -439,14 +438,14 @@ typedef union disklogrecord {
 	char buffer[1];			/* varies */
 	struct {
 		LogIndex idx;		/* Virtual index */
-        /* legacy : includes generation 
-         * sqlite : same as index */
+        /*  
+         * dao : same as index */
 		LogIndex nextfree;	/* Other uses too... */
 		TimeStamp ctime;	/* Creation time */
 		TimeStamp mtime;	/* Last writeout time */
 		Integer generation;	
-        /* legacy : Incremented in destroy 
-         * sqlite : not used anymore */
+        /*  
+         * dao : not used anymore */
 		Integer reserved1;
 		char rest[1];		/* varies */
 	} header;
@@ -456,8 +455,8 @@ typedef union disklogrecord {
  * The record is the real entry in disk in old legacy case. */
 typedef struct logentry {
 	LogIndex idx;
-    /* legacy : The PHYSICAL index in datafile
-     * sqlite : same as virtual and real index in the sqlite database (primary key) */
+    /* 
+     * dao : same as virtual and real index in the dao database (primary key) */
 	LogSystem *logsys;
 
 	union disklogrecord *record;
@@ -466,8 +465,8 @@ typedef struct logentry {
 /*JRE 06.15 BG-81*/
 typedef struct logentryenv {
 	LogIndexEnv idx;
-    /* legacy : The PHYSICAL index in datafile
-     * sqlite : same as virtual and real index in the sqlite database (primary key) */
+    /* 
+     * dao : same as virtual and real index in the dao database (primary key) */
 	LogSystem *logsys;
 
 	union disklogrecord *record;

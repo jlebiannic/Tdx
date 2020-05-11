@@ -10,7 +10,7 @@
 
 	Routines used to access fields in logentries.
 ========================================================================*/
-static char *version = "@(#)TradeXpress $Id: operate.c 55239 2019-11-19 13:50:31Z sodifrance $";
+static char *version = "@(#)TradeXpress $Id: operate.c 55487 2020-05-06 08:56:27Z jlebiannic $";
 static char *uname = UNAME;
 extern char *liblogsystem_version;
 static char **lib = &liblogsystem_version;
@@ -30,13 +30,13 @@ static char **lib = &liblogsystem_version;
 
 #define OPERATOR_STRINGS
 
-#include "logsystem.sqlite.h"
+#include "logsystem.dao.h"
 #include "runtime/tr_prototypes.h"
 
 
 extern double atof();
 
-void sqlite_log_strsubrm(char *txt, char *sub);
+void dao_log_strsubrm(char *txt, char *sub);
 
 /*
  * Operator can be
@@ -47,7 +47,7 @@ void sqlite_log_strsubrm(char *txt, char *sub);
  *	+=	ADD
  *	-=	SUB
  */
-static void sqlite_topieces(char *namevalue, char **name, int *op/* operator enum */, char **value)
+static void dao_topieces(char *namevalue, char **name, int *op/* operator enum */, char **value)
 {
 	char *cp = namevalue;
 	char *name_end;
@@ -120,7 +120,7 @@ static void sqlite_topieces(char *namevalue, char **name, int *op/* operator enu
 	*value = cp;
 }
 
-void sqlite_logoperator_insert(LogOperator **lop, char *name, int op, char *value)
+void dao_logoperator_insert(LogOperator **lop, char *name, int op, char *value)
 {
 	int n;
 	OperatorRecord *r;
@@ -128,7 +128,7 @@ void sqlite_logoperator_insert(LogOperator **lop, char *name, int op, char *valu
 
 	if (!lo)
     {
-		lo = sqlite_log_malloc(sizeof(*lo));
+		lo = dao_log_malloc(sizeof(*lo));
 		memset(lo, 0, sizeof(*lo));
 		*lop = lo;
 	}
@@ -137,25 +137,25 @@ void sqlite_logoperator_insert(LogOperator **lop, char *name, int op, char *valu
 		lo->operator_max += 64;
 		n = lo->operator_max * sizeof(*lo->operators);
 
-		lo->operators = sqlite_log_realloc(lo->operators, n);
+		lo->operators = dao_log_realloc(lo->operators, n);
 	}
 	r = &lo->operators[lo->operator_count++];
 
-	r->name = sqlite_log_strdup(name);
+	r->name = dao_log_strdup(name);
 	r->op = op;
-	r->value = sqlite_log_strdup(value);
+	r->value = dao_log_strdup(value);
 }
 
-void sqlite_logoperator_add(LogOperator **lop, char *namevalue)
+void dao_logoperator_add(LogOperator **lop, char *namevalue)
 {
 	char *name, *value;
 	int op;
 
-	sqlite_topieces(namevalue, &name, &op, &value);
-	sqlite_logoperator_insert(lop, name, op, value);
+	dao_topieces(namevalue, &name, &op, &value);
+	dao_logoperator_insert(lop, name, op, value);
 }
 
-int sqlite_logoperator_read(LogOperator **lop, FILE *fp)
+int dao_logoperator_read(LogOperator **lop, FILE *fp)
 {
 	char buf[1024];
 	char *name, *value, *cp;
@@ -171,13 +171,13 @@ int sqlite_logoperator_read(LogOperator **lop, FILE *fp)
 		if ((cp = strchr(buf, '\n')) != NULL)
 			*cp = 0;
 
-		sqlite_topieces(buf, &name, &op, &value);
-		sqlite_logoperator_insert(lop, name, op, value);
+		dao_topieces(buf, &name, &op, &value);
+		dao_logoperator_insert(lop, name, op, value);
 	}
 	return (0);
 }
 
-int sqlite_logoperator_write(FILE *fp, LogOperator *lo)
+int dao_logoperator_write(FILE *fp, LogOperator *lo)
 {
 	OperatorRecord *r;
 
@@ -195,7 +195,7 @@ int sqlite_logoperator_write(FILE *fp, LogOperator *lo)
 }
 
 /* Clear fields from operator, but dont free the operator-array itself */
-void sqlite_logoperator_clear(LogOperator *lo)
+void dao_logoperator_clear(LogOperator *lo)
 {
 	OperatorRecord *r;
 
@@ -212,12 +212,12 @@ void sqlite_logoperator_clear(LogOperator *lo)
 	lo->operator_count = 0;
 }
 
-void sqlite_logoperator_free(LogOperator *lo)
+void dao_logoperator_free(LogOperator *lo)
 {
 	if (!lo)
 		return ;
 
-	sqlite_logoperator_clear(lo);
+	dao_logoperator_clear(lo);
 
 	if (lo->operators)
 		free(lo->operators);
@@ -232,7 +232,7 @@ void sqlite_logoperator_free(LogOperator *lo)
  * the value can be appended (+=),
  * or every occurrence of value can be removed (-=).
  */
-int sqlite_logoperator_text(char *txt, OperatorRecord *r)
+int dao_logoperator_text(char *txt, OperatorRecord *r)
 {
 	LogField *field;
 
@@ -241,14 +241,14 @@ int sqlite_logoperator_text(char *txt, OperatorRecord *r)
 	field = r->field;
 	switch (r->op) 
     {
-	case OP_SET: sqlite_log_strncpy(txt, r->compiled.text, field->size); break;
-	case OP_ADD: sqlite_log_strncat(txt, r->compiled.text, field->size); break;
-	case OP_SUB: sqlite_log_strsubrm(txt, r->compiled.text); break;
+	case OP_SET: dao_log_strncpy(txt, r->compiled.text, field->size); break;
+	case OP_ADD: dao_log_strncat(txt, r->compiled.text, field->size); break;
+	case OP_SUB: dao_log_strsubrm(txt, r->compiled.text); break;
 	}
     return 0;
 }
 
-int sqlite_logoperator_time(TimeStamp *stamp, OperatorRecord *r)
+int dao_logoperator_time(TimeStamp *stamp, OperatorRecord *r)
 {
 	if (!stamp || !r)
 		return 0;
@@ -263,7 +263,7 @@ int sqlite_logoperator_time(TimeStamp *stamp, OperatorRecord *r)
     return 0;
 }
 
-int sqlite_logoperator_number(Number *n, OperatorRecord *r)
+int dao_logoperator_number(Number *n, OperatorRecord *r)
 {
 	if (!n || !r)
 		return 0;
@@ -278,7 +278,7 @@ int sqlite_logoperator_number(Number *n, OperatorRecord *r)
     return 0;
 }
 
-int sqlite_logoperator_integer(Integer *i, OperatorRecord *r)
+int dao_logoperator_integer(Integer *i, OperatorRecord *r)
 {
 	if (!i || !r)
 		return 0;
@@ -293,7 +293,7 @@ int sqlite_logoperator_integer(Integer *i, OperatorRecord *r)
     return 0;
 }
 
-int sqlite_logoperator_unknown()
+int dao_logoperator_unknown()
 {
     return 0;
 }
@@ -302,7 +302,7 @@ int sqlite_logoperator_unknown()
  * fields in the logsystem.
  * Unknown fields are ignored.
  * Do atois and atofs here. */
-int sqlite_logsys_compileoperator(LogSystem *ls, LogOperator *lo)
+int dao_logsys_compileoperator(LogSystem *ls, LogOperator *lo)
 {
 	OperatorRecord *r;
 
@@ -314,12 +314,12 @@ int sqlite_logsys_compileoperator(LogSystem *ls, LogOperator *lo)
 	for (r = lo->operators; r < &lo->operators[lo->operator_count]; ++r)
     {
 		r->field = NULL;
-		r->func = sqlite_logoperator_unknown;
+		r->func = dao_logoperator_unknown;
 
 		if (r->op == OP_NONE)
 			continue;
 
-		r->field = sqlite_logsys_getfield(ls, r->name);
+		r->field = dao_logsys_getfield(ls, r->name);
 		if (!r->field)
 			continue;
 
@@ -330,27 +330,27 @@ int sqlite_logsys_compileoperator(LogSystem *ls, LogOperator *lo)
 
 		case FIELD_TEXT:
 			r->compiled.text = r->value;
-			r->func = sqlite_logoperator_text;
+			r->func = dao_logoperator_text;
 			break;
 		case FIELD_TIME:
 			tr_parsetime(r->value, (time_t *) r->compiled.times);
-			r->func = sqlite_logoperator_time;
+			r->func = dao_logoperator_time;
 			break;
 		case FIELD_INDEX:
 		case FIELD_INTEGER:
 			r->compiled.integer = atoi(r->value);
-			r->func = sqlite_logoperator_integer;
+			r->func = dao_logoperator_integer;
 			break;
 		case FIELD_NUMBER:
 			r->compiled.number = atof(r->value);
-			r->func = sqlite_logoperator_number;
+			r->func = dao_logoperator_number;
 			break;
 		}
 	}
     return 0;
 }
 
-void sqlite_logentry_operate(LogEntry *entry, LogOperator *o)
+void dao_logentry_operate(LogEntry *entry, LogOperator *o)
 {
 	OperatorRecord *r;
 	void *value;
@@ -359,7 +359,7 @@ void sqlite_logentry_operate(LogEntry *entry, LogOperator *o)
 		return;
 
 	if (o->logsys_compiled_to != entry->logsys)
-        sqlite_logsys_compileoperator(entry->logsys, o);
+        dao_logsys_compileoperator(entry->logsys, o);
 
 	for (r = o->operators; r < &o->operators[o->operator_count]; ++r)
     {
@@ -372,13 +372,13 @@ void sqlite_logentry_operate(LogEntry *entry, LogOperator *o)
 	}
 }
 
-void sqlite_logsys_operatebyfilter(LogSystem *log, LogFilter *filter, LogOperator *ops)
+void dao_logsys_operatebyfilter(LogSystem *log, LogFilter *filter, LogOperator *ops)
 {
     LogEntry **entries;
     int resultIndex = 0;
 
     /* read the entries corresponding to the filter */
-    entries = sqlite_logsys_makelist(log,filter);
+    entries = dao_logsys_makelist(log,filter);
 
     /* no matching entries */
     if (entries == NULL)
@@ -387,8 +387,8 @@ void sqlite_logsys_operatebyfilter(LogSystem *log, LogFilter *filter, LogOperato
     /* modify and rewrite */
     while (entries[resultIndex] != NULL)
     {
-			sqlite_logentry_operate(entries[resultIndex], ops);
-			sqlite_logentry_write(entries[resultIndex]);
+			dao_logentry_operate(entries[resultIndex], ops);
+			dao_logentry_write(entries[resultIndex]);
             resultIndex++;
     }
     free(entries);

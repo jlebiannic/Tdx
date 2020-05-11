@@ -8,7 +8,7 @@
         Copyright (c) 1994 Telecom Finland/EDI Operations
 
 ==========================================================================
-  @(#)TradeXpress $Id: private.h 47371 2013-10-21 13:58:37Z cdemory $
+  @(#)TradeXpress $Id: private.h 55487 2020-05-06 08:56:27Z jlebiannic $
   Record all changes here and update the above string accordingly.
   3.00 03.10.94/JN	Created.
 ========================================================================*/
@@ -33,6 +33,6 @@ extern int errno;
 #define PROTO(x) x
 
 extern void		bail_out	PROTO((char*,...));
-#define sqlite_bail_out bail_out
+#define dao_bail_out bail_out
 
 #define UNUSED_PARAM(x) (void)x

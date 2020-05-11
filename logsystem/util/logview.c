@@ -8,7 +8,7 @@
 	Copyright (c) 1998 Telecom Finland/EDI Operations
 ============================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: logview.c 55239 2019-11-19 13:50:31Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: logview.c 55499 2020-05-07 16:25:38Z jlebiannic $")
 #include "runtime/tr_constants.h"
 
 
@@ -62,14 +62,11 @@ MODULE("@(#)TradeXpress $Id: logview.c 55239 2019-11-19 13:50:31Z sodifrance $")
 #include <errno.h>
 
 extern int errno;
-extern int tr_useSQLiteLogsys;
-/* are we migrating from old legacy to sqlite ? */
 extern int logsys_migrate;
 
-#include "logsystem/remote/logsysrem.h"
-#include "rlslib/rlslib.h"
 #include "translator/translator.h"
-#include "logsystem/lib/logsystem.sqlite.h"
+#include "logsystem/lib/logsystem.dao.h"
+#include "logsystem/lib/logsystem.definitions.h"
 
 /* dummy variables */
 double tr_errorLevel = 0;
@@ -94,7 +91,7 @@ void bail_out(char *fmt, ...)
 	va_end(ap);
 	if (errno)
 	{
-		fprintf(stderr, " (%d,%s)\n", errno, syserr_string(errno));
+		fprintf(stderr, " (%d,%s)\n", errno, dao_syserr_string(errno));
 	}
 	exit(1);
 }
@@ -103,7 +100,6 @@ static char *output_name = "(stdout)";
 
 int PrintEntry(LogEntry *entry, PrintFormat *printFormat);
 LogEntry *logview_readentry(void *log, int index);
-void verify_name_filter(LogFilter *logFilter);
 /*JRE 06.15 BG-81*/
 int PrintEntryEnv(LogEntryEnv *entry, PrintFormat *printFormat);
 LogEntryEnv *logview_readentry_env(void *lg, char* index);
@@ -113,7 +109,6 @@ static int nusers = 0;
 static char *users[256 +1];
 
 /* 4.04/KP : Now defaults as remote. */
-static int rls_flag = 1;
 static int header_flag = 0;
 static int namevalue_flag = 0;
 static int printall_flag = 0;
@@ -186,18 +181,7 @@ main(int argc, char **argv)
 
 	tr_UseLocaleUTF8();
 
-	logsys_compability_setup();
-
-    /* only revelant it local mode
-     * in rls, this is looked at server side */
-    if (getenv("USE_SQLITE_LOGSYS") != NULL)
-	{
-        tr_useSQLiteLogsys = atoi(getenv("USE_SQLITE_LOGSYS"));
-	}
-    else
-	{
-        tr_useSQLiteLogsys = 0;
-	}
+	dao_logsys_compability_setup();
 
 	cmd = argv[0];
 	opterr = 0;
@@ -210,7 +194,7 @@ main(int argc, char **argv)
 				fprintf(stderr, "\n\
 Valid options are:\n\
 	-s sysname		logsystem name in the following format: \n\
-				[ediuser@host[#user#password][/rlsport]:]database \n\
+				[ediuser@host[#user#password]database \n\
 	-h			print header as the first line (on the second line if also print page position)\n\
 	-m			(obsolete)\n\
 	-i index		absolute index to read\n\
@@ -229,14 +213,10 @@ Valid options are:\n\
 	-D dumpfile		export dump into file\n\
 	-T			trace dumping\n\
 	-L listfile		list of loglines\n\
-	-r			remote base\n\
-	-l			local base\n\
 	-C separator		set column separator\n\
 	-w 			return number of entries in the table\n\
 	-W 			return informations about the fields used\n\
-	-O 			the base is an old legacy one\n\
-	-I 			the base is a  sqlite one\n\
-	-t			use transaction mode on sqlite base\n\
+	-t			use transaction mode on base\n\
 	-z 			in legacy mode, do a dump with all fields. Option not needed for SQLite mode, all fields are dumped\n\
 	-g 			only output the paGe (size of page based on maxcount) of results\n\
 	-G 			print the current page position as the first line\n\
@@ -249,12 +229,8 @@ Valid options are:\n\
 /*Fin TX-2792*/
 				exit (2);
 			case 's': sysname = optarg; break;
-			case 'O' : tr_useSQLiteLogsys = 0; break;
-			case 'I' : tr_useSQLiteLogsys = 1; break;
 			case 't' :
-				if (!rls_flag){
-					logsys_useTransaction = 1;
-					}
+				logsys_useTransaction = 1;
 				break;
 			case 'z' :
 				/* are we migrating from old legacy to sqlite ?
@@ -297,7 +273,7 @@ Valid options are:\n\
 						if (nusers + 1 >= SIZEOF(users)){
 							fatal_exit("Too many users, %d max", SIZEOF(users));
 							}
-						users[nusers++] = log_strdup(buf);
+						users[nusers++] = dao_log_strdup(buf);
 						users[nusers] = NULL;
 					}
 					if (fp != stdin){
@@ -309,7 +285,7 @@ Valid options are:\n\
 				break;
 			case 'h': header_flag = 1; break;
 			case 'i': absIndex = atoi(optarg); break; /* Absolute index. */
-			case 'f': logfilter_add(&logFilter, optarg); break; /* Add one field into filter. */
+			case 'f': dao_logfilter_add(&logFilter, optarg); break; /* Add one field into filter. */
 			case 'F':
 				/* Read filter from file. */
 				if (!strcmp(optarg, "-")){
@@ -318,12 +294,12 @@ Valid options are:\n\
 				else if ((fp = fopen(optarg, "r")) == NULL){
 					perror_exit(optarg);
 					}
-				logfilter_read(&logFilter, fp);
+				dao_logfilter_read(&logFilter, fp);
 				if (fp != stdin){
 					fclose(fp);
 					}
 				break;
-			case 'p': printformat_add(&printFormat, optarg); break; /* Printout format field. */
+			case 'p': dao_printformat_add(&printFormat, optarg); break; /* Printout format field. */
 			case 'P':
 				/* Printout formats from a file. */
 				if (!strcmp(optarg, "-")){
@@ -332,7 +308,7 @@ Valid options are:\n\
 				else if ((fp = fopen(optarg, "r")) == NULL){
 					perror_exit(optarg);
 					}
-				printformat_read(&printFormat, fp);
+				dao_printformat_read(&printFormat, fp);
 				if (fp != stdin){
 					fclose(fp);
 					}
@@ -343,7 +319,7 @@ Valid options are:\n\
 				break;
 			case 'n':
 				namevalue_flag = 1;
-				printformat_add(&printFormat, optarg);
+				dao_printformat_add(&printFormat, optarg);
 				break;
 			case 'N':
 				namevalue_flag = 1;
@@ -354,15 +330,15 @@ Valid options are:\n\
 				else if ((fp = fopen(optarg, "r")) == NULL){
 					perror_exit(optarg);
 					}
-				printformat_read(&printFormat, fp);
+				dao_printformat_read(&printFormat, fp);
 				if (fp != stdin){
 					fclose(fp);
 					}
 				break;
-			case 'o': logfilter_setkey(&logFilter, optarg); break;
-			case 'a': logfilter_setorder(&logFilter,  1); break;
-			case 'd': logfilter_setorder(&logFilter, -1); break;
-			case 'c': logfilter_setmaxcount(&logFilter, atoi(optarg)); break;
+			case 'o': dao_logfilter_setkey(&logFilter, optarg); break;
+			case 'a': dao_logfilter_setorder(&logFilter,  1); break;
+			case 'd': dao_logfilter_setorder(&logFilter, -1); break;
+			case 'c': dao_logfilter_setmaxcount(&logFilter, atoi(optarg)); break;
 			case 'M':
 				if (!strcmp(optarg, "-")){
 					fp = stdin;
@@ -371,7 +347,7 @@ Valid options are:\n\
 					perror_exit(optarg);
 					}
 
-				logfilter_printformat_read(&logFilter, &printFormat, fp);
+				dao_logfilter_printformat_read(&logFilter, &printFormat, fp);
 
 				if (fp != stdin){
 					fclose(fp);
@@ -410,12 +386,7 @@ Valid options are:\n\
 					perror_exit(optarg);
 					}
 				break;
-			case 'r':
-				rls_flag = 1;
-				logsys_useTransaction = 0;
-				break;
-			case 'l': rls_flag = 0; break;
-			case 'C': logfilter_setseparator(&logFilter, optarg); break;
+			case 'C': dao_logfilter_setseparator(&logFilter, optarg); break;
 			case 'g': page_number = atoi(optarg); break;
 			case 'G': page_header_flag = 1; break;
 			case 'v': tr_errorLevel = atof(optarg); break;
@@ -431,7 +402,7 @@ Valid options are:\n\
 					else if ((fp = fopen(optarg, "r")) == NULL) {
 						perror_exit(optarg);
 					}
-					logEnv = logenv_read(fp);
+					logEnv = dao_logenv_read(fp);
 					multBase = 1;
 				
 					/*sysname est egal a la premiere base renseignee dans le fichier de conf*/
@@ -449,7 +420,7 @@ Valid options are:\n\
 		}
 	}
 	while (optind < argc){
-		printformat_add(&printFormat, argv[optind++]);
+		dao_printformat_add(&printFormat, argv[optind++]);
 	}
 
 	if (!sysname){
@@ -457,32 +428,22 @@ Valid options are:\n\
 		}
 
 	writeLog(LOGLEVEL_NORMAL, "loglevel is %.f", tr_errorLevel);
-	if (rls_flag) {
-		/*JRE TX-2767*/
-		if (multBase == 1) {
-			/*pas de multi-base en mode rls*/
-			fatal_exit("No multibase in rls mode", 0);
-		}
-		
-		/*End TX-2767*/
-		writeLog(LOGLEVEL_NORMAL, "logview is in rls mode");
-		log = rls_open(sysname);
-	} else {
-		writeLog(LOGLEVEL_NORMAL, "logview is in local mode");
-		log = logsys_open(sysname, LS_FAILOK | LS_READONLY);
-		if ((log)
-		&&  (logsys_useTransaction == 1)
-		&&  (logsys_begin_transaction(log) == -1)){
-				exit(1);
-				}
-				
-		/*JRE 06.15 BG-81*/
-		/*affectation de la liste des logsystem names et des environnements*/
-		if (logEnv != NULL) {
-			logsys_affect_sysname(log,logEnv);
-		}
-		/*End JRE*/
+
+	writeLog(LOGLEVEL_NORMAL, "logview is in local mode");
+	log = dao_logsys_open(sysname, LS_FAILOK | LS_READONLY);
+	if ((log)
+	&&  (logsys_useTransaction == 1)
+	&&  (dao_logsys_begin_transaction(log) == -1)){
+			exit(1);
+			}
+			
+	/*JRE 06.15 BG-81*/
+	/*affectation de la liste des logsystem names et des environnements*/
+	if (logEnv != NULL) {
+		dao_logsys_affect_sysname(log,logEnv);
 	}
+	/*End JRE*/
+	
 
 	if (log == NULL){
 		perror_exit(sysname);
@@ -504,16 +465,16 @@ Valid options are:\n\
 		if (page_header_flag == 1)
 		{
 			page_number = 1;
-			maxcount = logfilter_getmaxcount(logFilter);
-			logfilter_setoffset(&logFilter, 0);
+			maxcount = dao_logfilter_getmaxcount(logFilter);
+			dao_logfilter_setoffset(&logFilter, 0);
 		}
 	} else {
 		writeLog(LOGLEVEL_BIGDEVEL, "page_number = %d", page_number);
-		maxcount = logfilter_getmaxcount(logFilter);
+		maxcount = dao_logfilter_getmaxcount(logFilter);
 		if ((page_number != 1) && (maxcount == 0)){
 			fatal_exit("Without maxcount, only first page can be displayed\n",0);
 			}
-		logfilter_setoffset(&logFilter, (page_number - 1) * maxcount);
+		dao_logfilter_setoffset(&logFilter, (page_number - 1) * maxcount);
 	}
 	writeLog(LOGLEVEL_BIGDEVEL, "maxcount=%d", maxcount);
 
@@ -525,64 +486,42 @@ Valid options are:\n\
 		if (logFilter != NULL)
 		{
 			writeLog(LOGLEVEL_BIGDEVEL, "apply filters");
-			if (rls_flag)
-			{
-				flt = logfilter_textualparam(logFilter);
-				/*YLI(CG) 13.03.13 TX-460 */
-				if (flt)
-				{
-					verify_name_filter(logFilter);
-				}
-				/*End*/
-				rls_vqueryParam(log, NULL, flt);
-				logfilter_textual_free(flt);
-				rls_getnext(log, NULL);
-			}
-			else
-				{
-				/*YLI(CG) 13.03.13 TX-460
-				when nunk is 0: field exists */
-				/* Compile the fields in the filter */
-				nunk = logsys_compilefilter(log, logFilter);
-				if (nunk != 0)
-				{
-					end = &logFilter->filters[logFilter->filter_count];
-					for (g = logFilter->filters; g < end; ++g)
-					{
-						g->field = NULL;
 
-						g->field = logsys_getfield(log, g->name);
-						if (!g->field){
-							fprintf (stderr, "Error: Field %s does not exist\n",g->name);
-							}
-					}
-					exit(0);
+			/*YLI(CG) 13.03.13 TX-460
+			when nunk is 0: field exists */
+			/* Compile the fields in the filter */
+			nunk = dao_logsys_compilefilter(log, logFilter);
+			if (nunk != 0)
+			{
+				end = &logFilter->filters[logFilter->filter_count];
+				for (g = logFilter->filters; g < end; ++g)
+				{
+					g->field = NULL;
+
+					g->field = dao_logsys_getfield(log, g->name);
+					if (!g->field){
+						fprintf (stderr, "Error: Field %s does not exist\n",g->name);
+						}
 				}
+				exit(0);
 			}
 		}
 		writeLog(LOGLEVEL_BIGDEVEL, "... and count entry\n");
-		if (rls_flag){
-			rls_logsys_entry_count((rls *)log,&entry_count);
-			}
-		else{
-            if (tr_useSQLiteLogsys) {
-                /*PSA WBA-333
-                Utilisation du compteur pour les bases sqlite*/
-                /*JRE 06.15 BG-81*/
-                if (multBase == 1) {
-                	/*multi environnement*/
-                	entry_count = logsys_sqlite_entry_count_env((LogSystem *)log, logFilter);
-                } else {
-                	entry_count = logsys_sqlite_entry_count((LogSystem *)log, logFilter);
-                }
-                /*End JRE*/
-            } else {
-                entry_count = logsys_entry_count((LogSystem *)log,logFilter);
-            }
-			}
+
+		/*PSA WBA-333
+		Utilisation du compteur pour les tables */
+		/*JRE 06.15 BG-81*/
+		if (multBase == 1) {
+			/*multi environnement*/
+			entry_count = logsys_dao_entry_count_env((LogSystem *)log, logFilter);
+		} else {
+			entry_count = logsys_dao_entry_count((LogSystem *)log, logFilter);
+		}
+		/*End JRE*/
+		
 		writeLog(LOGLEVEL_BIGDEVEL, "entry_count = %d", entry_count);
 
-		if (!rls_flag && (logsys_useTransaction == 1) &&  (logsys_end_transaction(log) == -1))
+		if ((logsys_useTransaction == 1) &&  (dao_logsys_end_transaction(log) == -1))
 		{
 			exit(1);
 		}
@@ -594,46 +533,30 @@ Valid options are:\n\
 	if  (label_fields_only == 1)
 	{
 		writeLog(LOGLEVEL_DEBUG, "We only want the labels of fiels in DB");
-		if (!rls_flag)
-		{
-			logsys_dumplabelfields(((LogSystem *)log)->label);
-			if ((logsys_useTransaction == 1)
-			&&  (logsys_end_transaction(log) == -1)){
-					exit(1);
-					}
 
-			exit(0);
-		}
-		else{
-			fatal_exit("Option supported in local mode only", 0);
-			}
-	}
-
-	/* 4.03 12.10.98/KP : rls option */
-	if (rls_flag)
-	{
-		if (printall_flag){
-				printFormat = logsysrem_namevalueformat(log);
+		dao_logsys_dumplabelfields(((LogSystem *)log)->label);
+		if ((logsys_useTransaction == 1)
+		&&  (dao_logsys_end_transaction(log) == -1)){
+				exit(1);
 				}
-		else if (!printFormat){
-				 printFormat = logsysrem_defaultformat(log);
-				 }
-		logsysrem_compileprintformat(log, printFormat);
+
+		exit(0);
+		
 	}
-	else
-	{
-		if (printall_flag){
-			printFormat = logsys_namevalueformat(log);
-			}
-		else if (!printFormat){
-			printFormat = logsys_defaultformat(log);
-			}
-		logsys_compileprintform(log, printFormat);
-	}
+
+
+	if (printall_flag){
+		printFormat = dao_logsys_namevalueformat(log);
+		}
+	else if (!printFormat){
+		printFormat = dao_logsys_defaultformat(log);
+		}
+	dao_logsys_compileprintform(log, printFormat);
+	
 
 	/* 4.06/CD copy the column separator from the logfilter to the printformat */
 	if ((printFormat) && (logFilter) && logFilter->separator){
-		printFormat->separator = log_strdup(logFilter->separator);
+		printFormat->separator = dao_log_strdup(logFilter->separator);
 	}
 
 	if (absIndex)
@@ -647,7 +570,7 @@ Valid options are:\n\
 		if (ep == NULL)
 		{
 			if (logsys_useTransaction == 1){
-				logsys_end_transaction(log);
+				dao_logsys_end_transaction(log);
 				}
 			fatal_exit("Entry %d is unreadable", absIndex);
 		}
@@ -666,7 +589,7 @@ Valid options are:\n\
 							fprintf(stderr,"Printing page %d/1.\n",page_number);
 							}
 						if (header_flag){
-							logheader_printbyformat(stdout, printFormat);
+							dao_logheader_printbyformat(stdout, printFormat);
 							}
 						PrintEntry(ep, printFormat);
 					}
@@ -681,7 +604,7 @@ Valid options are:\n\
 	else
 		{
 			if (header_flag){
-				logheader_printbyformat(stdout, printFormat);
+				dao_logheader_printbyformat(stdout, printFormat);
 				}
 			PrintEntry(ep, printFormat);
 		}
@@ -693,10 +616,10 @@ Valid options are:\n\
                         char *temp, *env, *idx;
                         int len;
 
-			log_sqlite_attach_database_env(log);
+			log_dao_attach_database_env(log);
 			
 			if (header_flag){
-				logheader_printbyformat_env(stdout, printFormat);
+				dao_logheader_printbyformat_env(stdout, printFormat);
 			}
 			
 			while (fgets(idxEnv, sizeof(idxEnv), listFp))
@@ -733,7 +656,7 @@ Valid options are:\n\
 			char *cp, buf[512];
 
 			if (header_flag){
-				logheader_printbyformat(stdout, printFormat);
+				dao_logheader_printbyformat(stdout, printFormat);
 			}
 			while (fgets(buf, sizeof(buf), listFp))
 			{
@@ -744,7 +667,7 @@ Valid options are:\n\
 					if (ep == NULL)
 					{
 						if (logsys_useTransaction == 1){
-							logsys_end_transaction(log);
+							dao_logsys_end_transaction(log);
 							}
 						fatal_exit("Entry %d is unreadable", idx);
 					}
@@ -764,100 +687,87 @@ Valid options are:\n\
 	else
 	{
 		writeLog(LOGLEVEL_BIGDEVEL, "Normal case. We want all entries after apply filter and format");
-		if (rls_flag)
-		{
-			flt = logfilter_textualparam(logFilter);
 
-			/*YLI(CG) TX-460 */
-			if (flt){
-				verify_name_filter(logFilter);
-			}
-			/*End*/
-			rls_vqueryParam(log, NULL, flt);
-			logfilter_textual_free(flt);
-		}
-		else {
-			/*YLI(CG) 13.03.13 TX-460
-			when nunk is 0: field exists */
-			nunk = logsys_compilefilter(log, logFilter); /* Compile the fields in the filter */
-			if (nunk != 0)
-			{	end = &logFilter->filters[logFilter->filter_count];
-				for (g = logFilter->filters; g < end; ++g)
-				{
-					g->field = NULL;
+		/*YLI(CG) 13.03.13 TX-460
+		when nunk is 0: field exists */
+		nunk = dao_logsys_compilefilter(log, logFilter); /* Compile the fields in the filter */
+		if (nunk != 0)
+		{	end = &logFilter->filters[logFilter->filter_count];
+			for (g = logFilter->filters; g < end; ++g)
+			{
+				g->field = NULL;
 
-					g->field = logsys_getfield(log, g->name);
-					if (!g->field){
-						fprintf (stderr, "Error: Field %s does not exist\n",g->name);
-						}
-				}
-				exit(0);
+				g->field = dao_logsys_getfield(log, g->name);
+				if (!g->field){
+					fprintf (stderr, "Error: Field %s does not exist\n",g->name);
+					}
 			}
+			exit(0);
 		}
+		
 		/*End */
 
 		if (header_flag){
-			logheader_printbyformat(stdout, printFormat);
-			}
-
-		if (!rls_flag) {
-			writeLog(LOGLEVEL_BIGDEVEL, "Create indexed list of entries");
-
-			/*JRE 06.15 BG-81*/
-			if (multBase == 1) {
-				/*multi environnement*/
-				indexesEnv = logsys_list_indexed_env(log, logFilter);
-				
-				writeLog(LOGLEVEL_BIGDEVEL, "Before print of entries");
-				n = 0;
-				
-				while ((s = indexesEnv?indexesEnv[n]:"0") != "0")
-				{
-					n++;
-					
-					/* display headers before first entry if needed */
-					if (n == 1 && page_header_flag)
-					{
-						int j;
-
-						j = logsys_entry_count(log,logFilter);
-
-						if (maxcount<1)
-						{
-							maxcount=1;
-							page_max=1;
-						}
-						else {
-							page_max = j / maxcount;
-						}
-						if (j % maxcount > 0) {
-							page_max++;
-						}
-						fprintf(stderr,"Printing page %d/%d.\n",page_number,page_max);
-					}
-
-					if (page_number!=0)
-					{
-	
-						/* get the entry ... */
-						entryEnv = (LogEntryEnv*)malloc(sizeof(struct logentryenv));
-						entryEnv = logview_readentry_env(log, s);
-	
-						/* ... then print it */
-						PrintEntryEnv(entryEnv, printFormat);
-					}
-				}
-			} else {
-				indexes = logsys_list_indexed(log, logFilter);
-			}
+			dao_logheader_printbyformat(stdout, printFormat);
 		}
+
+		writeLog(LOGLEVEL_BIGDEVEL, "Create indexed list of entries");
+
+		/*JRE 06.15 BG-81*/
+		if (multBase == 1) {
+			/*multi environnement*/
+			indexesEnv = dao_logsys_list_indexed_env(log, logFilter);
+			
+			writeLog(LOGLEVEL_BIGDEVEL, "Before print of entries");
+			n = 0;
+			
+			while ((s = indexesEnv?indexesEnv[n]:"0") != "0")
+			{
+				n++;
+				
+				/* display headers before first entry if needed */
+				if (n == 1 && page_header_flag)
+				{
+					int j;
+
+					j = dao_logsys_entry_count(log,logFilter);
+
+					if (maxcount<1)
+					{
+						maxcount=1;
+						page_max=1;
+					}
+					else {
+						page_max = j / maxcount;
+					}
+					if (j % maxcount > 0) {
+						page_max++;
+					}
+					fprintf(stderr,"Printing page %d/%d.\n",page_number,page_max);
+				}
+
+				if (page_number!=0)
+				{
+
+					/* get the entry ... */
+					entryEnv = (LogEntryEnv*)malloc(sizeof(struct logentryenv));
+					entryEnv = logview_readentry_env(log, s);
+
+					/* ... then print it */
+					PrintEntryEnv(entryEnv, printFormat);
+				}
+			}
+		} else {
+			indexes = dao_logsys_list_indexed(log, logFilter);
+		}
+		
 		
 		if (multBase != 1) {
 				
 			writeLog(LOGLEVEL_BIGDEVEL, "Before print of entries");
 			n = 0;
 				
-			while ((i = rls_flag?rls_getnext(log, NULL):indexes?indexes[n]:0) != 0)
+			while ((i = indexes?indexes[n]:0) != 0)
 			{
 				n++;
 
@@ -866,13 +776,8 @@ Valid options are:\n\
 				{
 					int j;
 
-					if (rls_flag){
-						rls_logsys_entry_count(log,&j);
-					}
-					else{
-						j = logsys_entry_count(log,logFilter);
-					}
-	
+					j = dao_logsys_entry_count(log,logFilter);
+						
 					if (maxcount<1)
 					{
 						maxcount=1;
@@ -908,7 +813,7 @@ Valid options are:\n\
 	exportdump_end();
 
 	if ((logsys_useTransaction == 1)
-	&&  (logsys_end_transaction(log) == -1)){
+	&&  (dao_logsys_end_transaction(log) == -1)){
 		exit(1);
 		}
 
@@ -925,22 +830,8 @@ LogEntry *logview_readentry(void *log, int index)
 {
 	LogEntry *entry;
 
-	if (rls_flag)
-	{
-		if (rls_point((struct rls *) log, index) == 0)
-		{
-			entry = (LogEntry *)calloc(1, sizeof(LogEntry));
-			entry->idx = index;
-			entry->logsys = (LogSystem *) log;
-			entry->record = NULL;
-		}
-		else{
-			entry = NULL;
-			}
-	}
-	else{
-		entry = logentry_readindex((LogSystem *) log, index);
-		}
+	entry = dao_logentry_readindex((LogSystem *) log, index);
+		
 	return entry;
 }
 
@@ -949,7 +840,7 @@ LogEntryEnv *logview_readentry_env(void *lg, char* index)
 {
 	LogEntryEnv *entry;
 
-	entry = logentry_readindex_env((LogSystem *) lg, index);
+	entry = dao_logentry_readindex_env((LogSystem *) lg, index);
 
 
 	return entry;
@@ -965,26 +856,17 @@ int PrintEntry(LogEntry *entry, PrintFormat *printFormat)
 			exportdump_entry(entry);
 			}
 
-		if (rls_flag) {
-			logentryrem_printbyformat(stdout, entry, printFormat);
-			}
-		else{
-			logentry_printbyformat(stdout, entry, printFormat);
-			}
+		dao_logentry_printbyformat(stdout, entry, printFormat);
+			
 
 		if (exportdump_flag)
 		{
 			/* 4.07 CD add KEYINFO in all cases */
 			printf("---KEYINFO_END---\n");
 
-			if (rls_flag){
-				export_remote_files(entry, stdout);
-				}
-			else{
-				exportdump_files(entry);
-				}
+			exportdump_files(entry);
 		}
-		logentry_free(entry);
+		dao_logentry_free(entry);
 		entry = NULL;
 	}
     return 0;
@@ -999,7 +881,7 @@ int PrintEntryEnv(LogEntryEnv *entry, PrintFormat *printFormat)
 			exportdump_entry_env(entry);
 		}
 
-		logentry_printbyform_env(stdout, entry, printFormat);
+		dao_logentry_printbyform_env(stdout, entry, printFormat);
 
 		if (exportdump_flag)
 		{
@@ -1008,7 +890,7 @@ int PrintEntryEnv(LogEntryEnv *entry, PrintFormat *printFormat)
 
 			exportdump_files_env(entry);
 		}
-		sqlite_logentryenv_free(entry);
+		dao_logentryenv_free(entry);
 		entry = NULL;
 	}
     return 0;
@@ -1044,13 +926,8 @@ int exportdump_entry(LogEntry *entry)
     printf("---KEYINFO_BEGIN---\n");
 
 	if (dumpverbose_flag){
-		if (rls_flag){
-			fprintf(stderr, "\nE %d", entry->idx);
-			}
-		else{
-			fprintf(stderr, "\nE %d", logentry_getindex(entry));
-			}
-		}
+		fprintf(stderr, "\nE %d", dao_logentry_getindex(entry));
+	}
     return 0;
 }
 
@@ -1066,7 +943,7 @@ int exportdump_entry_env(LogEntryEnv *entry)
     printf("---KEYINFO_BEGIN---\n");
 
 	if (dumpverbose_flag){
-		fprintf(stderr, "\nE %d", logentry_getindex_env(entry));
+		fprintf(stderr, "\nE %d", dao_logentry_getindex_env(entry));
 	}
     
     return 0;
@@ -1099,7 +976,7 @@ int exportdump_files(LogEntry *entry)
 	char buf[1024];
 	unsigned char c;
 
-	sprintf(namebuf, "%d", (rls_flag ? entry->idx : logentry_getindex(entry)));
+	sprintf(namebuf, "%d", (dao_logentry_getindex(entry)));
 	
 	namelen = strlen(namebuf);
 
@@ -1141,7 +1018,7 @@ int exportdump_files(LogEntry *entry)
 				if ((st.st_mode & S_IFMT) != S_IFDIR){
 					continue;
 				 }
-				 sprintf(base, "/%d", (rls_flag ? entry->idx : logentry_getindex(entry)));
+				 sprintf(base, "/%d", (dao_logentry_getindex(entry)));
 			}
             else
             {
@@ -1169,7 +1046,7 @@ int exportdump_files(LogEntry *entry)
                 {
                     perror(path);
 					if (logsys_useTransaction == 1){
-						logsys_end_transaction(log);
+						dao_logsys_end_transaction(log);
 						}
                     exit(1);
                 }
@@ -1209,7 +1086,7 @@ int exportdump_files(LogEntry *entry)
 			if (ferror(fp)){
 				perror(path);
 				if (logsys_useTransaction == 1){
-					logsys_end_transaction(log);
+					dao_logsys_end_transaction(log);
 				}
 				exit(1);
 			}
@@ -1217,7 +1094,7 @@ int exportdump_files(LogEntry *entry)
 			if (ferror(stdout)){
 				perror("(stdout)");
 				if (logsys_useTransaction == 1){
-					logsys_end_transaction(log);
+					dao_logsys_end_transaction(log);
 					}
 				exit(1);
 			}
@@ -1234,36 +1111,6 @@ int exportdump_files(LogEntry *entry)
 	} /* end if file */
     return 0;
 }
-/*YLI(CG) 13.03.13 TX-460 search wrong fields
-				display error and stop the program if it exists */
-void verify_name_filter(LogFilter *lf)
-{
-	char **vector;
-	FilterRecord *f;
-	FilterRecord *end;
-	int i,nunk;
-	vector = rls_getfieldnames(log);/*stock all the fields in a base*/
-	end = &lf->filters[lf->filter_count];
-	for (f = lf->filters; f < end; ++f)
-	{
-		i = 0;
-		nunk = 1;
-		while((nunk == 1) && (vector[i] != '\0'))
-		{
-			if (strcmp(vector[i], f->name)){
-				i++;
-			} else {
-				nunk = 0;/*if nunk = 0, field of a filter exist*/
-			}
-		}
-		if(nunk == 1){/*if nunk = 0, field of a filter doesn't exist, display a error*/
-			fprintf (stderr, "Error: Field %s does not exist\n",f->name);
-		}
-	}
-	if(nunk ==1 ){ /*stop the program, if fields of a filter don't exist*/
-		exit(0);
-	}
-}	/*End*/
 
 /*JRE 06.15 BG-81*/
 int exportdump_files_env(LogEntryEnv *entry)
@@ -1287,7 +1134,7 @@ int exportdump_files_env(LogEntryEnv *entry)
 	char buf[1024];
 	unsigned char c;
 
-	sprintf(namebuf, "%d", (logentry_getindex_env(entry)));
+	sprintf(namebuf, "%d", (dao_logentry_getindex_env(entry)));
 
 	namelen = strlen(namebuf);
 
@@ -1327,7 +1174,7 @@ int exportdump_files_env(LogEntryEnv *entry)
 					if ((st.st_mode & S_IFMT) != S_IFDIR){
 						continue;
 					}
-					sprintf(base, "/%d", (logentry_getindex_env(entry)));
+					sprintf(base, "/%d", (dao_logentry_getindex_env(entry)));
 				}
         	    else
             	{
@@ -1355,7 +1202,7 @@ int exportdump_files_env(LogEntryEnv *entry)
             	    {
                 	    perror(path);
 						if (logsys_useTransaction == 1){
-							logsys_end_transaction(log);
+							dao_logsys_end_transaction(log);
 						}
 	                    exit(1);
     	            }
@@ -1395,7 +1242,7 @@ int exportdump_files_env(LogEntryEnv *entry)
 				if (ferror(fp)){
 					perror(path);
 					if (logsys_useTransaction == 1){
-						logsys_end_transaction(log);
+						dao_logsys_end_transaction(log);
 					}
 					exit(1);
 				}
@@ -1403,7 +1250,7 @@ int exportdump_files_env(LogEntryEnv *entry)
 				if (ferror(stdout)){
 					perror("(stdout)");
 					if (logsys_useTransaction == 1){
-						logsys_end_transaction(log);
+						dao_logsys_end_transaction(log);
 					}
 					exit(1);
 				}
