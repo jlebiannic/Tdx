@@ -21,6 +21,13 @@ int main(void) {
 	Dao *dao = daoFactory_create(1);
 	dao->openDB(dao, NULL);
 
+	const char *fields[3] = { "Ci1", "Ct2", "Cn3" };
+	const char *types[3] = { "INTEGER", "TEXT", "NUMERIC" };
+	dao->createTable(dao, "testDaoCreateTable", fields, types, 3, 0);
+	
+	const char *indexeFields[3] = { "Ct2", "Cn3" };
+	dao->createIndex(dao, "testDaoCreateTable", "IDX_TEST", indexeFields, 2);
+
 	dao->execQuery(dao, "select next from syslog where tx_index > 0");
 	while (dao->hasNextEntry(dao)) {
 		char *str = dao->getFieldValue(dao, "next");
