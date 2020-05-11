@@ -89,22 +89,14 @@ int tr_lsRemove(LogSysHandle *);
 int tr_lsReadEntry(LogSysHandle *, double);
 int tr_lsWriteEntry(LogSysHandle *);
 int tr_lsValidEntry(LogSysHandle *);
-int tr_lsTryStatFile(char *pseudoname, struct stat *st_result);
-int tr_lsTryOpenFile(char *pseudoname, char *mode, FILE **fp_result);
-int tr_lsTryRemoveFile(char *uglypath, int *ok_result);
-int tr_lsTryCopyFile(char *source, char *destination, int *ok_result);
 char **tr_lsFetchParms(LogSysHandle *ls, char *ext);
 void tr_lsFreeStringArray(char **ta);
 int tr_lsSetTextParm(LogSysHandle *, char *, char *, char *);
 char *tr_lsGetTextParm(LogSysHandle *, char *, char *);
 void tr_lsClearParms(LogSysHandle *, char *);
 int tr_lsSaveParms(LogSysHandle *pLog, char *tExt, char **ta);
-
 int tr_lsTryGetUniq(LogSysHandle *, char *, char *, int, int, int *);
-
-void tr_lsResetFile( FILE *fp );
 int tr_lsCloseFile( FILE *fp, char );
-
 void tr_lsOpenManualTransaction(LogSysHandle *handle);
 void tr_lsCloseManualTransaction(LogSysHandle *handle);
 void tr_lsRollbackManualTransaction(LogSysHandle *handle);
@@ -117,48 +109,4 @@ void tr_lsCloseTransaction(LogSysHandle *handle);
  */
 
 
-/*
- * Remote ones.
- */
-int tr_lsDecodeLoc(char *, PRLSPATH );
-void tr_lsReleaseRlsPath( PRLSPATH );
-
-char *tr_rlsPath (LogSysHandle *handle, char *extension);
-int tr_rlsFindFirst (LogSysHandle *, int, LogFieldHandle *, char *, ...);
-int tr_rlsVFindFirst(LogSysHandle *, int, LogFieldHandle *, char *, va_list);
-int tr_rlsFindNext(LogSysHandle *);
-void tr_rlsFreeEntryList(LogSysHandle *);
-char *tr_rlsGetTextVal(LogSysHandle *, LogFieldHandle *);
-double tr_rlsGetNumVal(LogSysHandle *, LogFieldHandle *);
-time_t tr_rlsGetTimeVal(LogSysHandle *, LogFieldHandle *);
-int tr_rlsSetTextVal(LogSysHandle *, LogFieldHandle *, char *);
-int tr_rlsSetNumVal(LogSysHandle *, LogFieldHandle *, double);
-int tr_rlsSetTimeVal(LogSysHandle *, LogFieldHandle *, char *);
-int tr_rlsCopyEntry(LogSysHandle *, LogSysHandle *);
-int tr_rlsCreate(LogSysHandle *, char *);
-int tr_rlsOpen(LogSysHandle *, char *);
-int tr_rlsRemove(LogSysHandle *);
-int tr_rlsReadEntry(LogSysHandle *, double);
-int tr_rlsWriteEntry(LogSysHandle *);
-int tr_rlsValidEntry(LogSysHandle *);
-char **tr_rlsFetchParms(LogSysHandle *ls, char *ext);
-int tr_rlsSetTextParm(LogSysHandle *, char *, char *, char *);
-char *tr_rlsGetTextParm(LogSysHandle *, char *, char *);
-void tr_rlsClearParms(LogSysHandle *, char *);
-int tr_rlsSaveParms(LogSysHandle *pLog, char *tExt, char **ta);
-
-int tr_rlsRemoteName(char *);
-int tr_rlsTryStatFile(char *, struct stat *);
-int tr_rlsTryOpenFile(char *, char *, FILE **);
-int tr_rlsTryRemoveFile(char *, int *);
-int tr_rlsTryCopyFile(char *, char *, int *);
-char * tr_PrettyPrintFileName(char *);
-
-int tr_rlsTryGetUniq(LogSysHandle *,char *, char *, int, int, int *);
-
-void tr_rlsResetFile( FILE *fp );
-int tr_rlsCloseFile( FILE *fp );
-int tr_rlsDecodeLoc(char *pseudoname, PRLSPATH rlspath);
-void tr_rlsReleaseRlsPath( PRLSPATH rlspath );
-int tr_rlsIsValidEntry(LogSysHandle *handle);
 #endif

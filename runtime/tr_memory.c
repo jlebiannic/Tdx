@@ -11,7 +11,7 @@
 ============================================================================*/
 #define TR_MEMORY
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_memory.c 55433 2020-03-16 12:37:08Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: tr_memory.c 55484 2020-05-05 09:18:01Z sodifrance $")
 /*LIBRARY(libruntime_version)
 */
 /*============================================================================
@@ -38,6 +38,9 @@ MODULE("@(#)TradeXpress $Id: tr_memory.c 55433 2020-03-16 12:37:08Z sodifrance $
 #include <string.h>
 #include <malloc.h>
 #include <errno.h>
+#ifndef MACHINE_WNT
+#include <unistd.h>
+#endif
 
 #include "tr_externals.h"
 #include "tr_list.h"
@@ -448,6 +451,7 @@ void* MemIdx_GetPrevNode(void *iTabNode, void *iInfo)
 	This initializes the stackbase.
 	Stack limit is updated every time in ismalloced().
 ============================================================================*/
+
 void tr_InitMemoryManager (void)
 {
 	tr_Inittrace();

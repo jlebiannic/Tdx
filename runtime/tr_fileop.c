@@ -9,7 +9,7 @@
 	Copyright (c) 1992 Telecom Finland/EDI Operations
 ===========================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_fileop.c 55166 2019-09-24 13:46:39Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: tr_fileop.c 55497 2020-05-06 15:49:05Z jlebiannic $")
 /*LIBRARY(libruntime_version)
 */
 /*===========================================================================
@@ -80,18 +80,6 @@ FILE *tr_fopen(char *filename, char *mode)
 {
 	FILE *fp;
 
-	/*
-	 *  Any remote file can get here...
-	 *  Testing for pseudo filenames is cheap.
-	 *  If it was not a pseudoname, continue locally.
-	 */
-	if (tr_lsTryOpenFile(filename, mode, &fp)) {
-		/*
-		** This for NT to ensure that handles are closed afterwards 11.05.99/HT
-		*/
-		return (fp);
-	}
-
 	fp = (FILE *)fopen64(filename, mode);
 
 	/*
@@ -104,7 +92,6 @@ FILE *tr_fopen(char *filename, char *mode)
 	 && tr_DirFixup(filename))
 		fp = (FILE *)fopen64(filename, mode);
 
-	tr_lsResetFile( fp );
 	return (fp);
 }
 
@@ -146,9 +133,6 @@ int tr_FileRemove (char *path)
 #endif
 	int ok;
 
-	if (tr_lsTryRemoveFile(path, &ok))
-		return (ok);
-
 	if (unlink (path)) {
 		tr_Log (TR_WARN_UNLINK_FAILED, path, errno);
 		return 0;
@@ -167,8 +151,7 @@ int tr_PrintFile (char *filename, FILE *fpOut)
 #endif
 
 	if ((fpIn = tr_fopen (filename, "r")) == NULL) {
-		tr_Log (TR_WARN_FILE_R_OPEN_FAILED,
-			tr_PrettyPrintFileName(filename), errno);
+		tr_Log (TR_WARN_FILE_R_OPEN_FAILED, filename, errno);
 		return 1;
 	}
 	while (tr_mbFgets (buffer, BUFSIZ, fpIn))
@@ -188,8 +171,6 @@ int tr_CopyFile (char *source, char *destination)
 	int ok, nBytes, nWritten, fdS, fdT;
 	char *szPtr, szBuf[8192];
 
-	if (tr_lsTryCopyFile(source, destination, &ok))
-		return (ok);
 
 	if ((fdS = open64(source, O_RDONLY | O_BINARY)) == -1) {
 		tr_Log (TR_WARN_FILE_R_OPEN_FAILED, source, errno);
@@ -242,14 +223,6 @@ int tr_MoveFile (char *source, char *destination)
 	int twice = 1;
 	int ok, rv;
 
-	if (tr_lsTryCopyFile(source, destination, &ok)) {
-		/*
-		 *  Was remote op. If ok, remove source file.
-		 */
-		if (!ok)
-			return (0);
-		return (tr_FileRemove (source));
-	}
 #ifdef MACHINE_WNT
 
 	while (rename(source, destination) != 0) {
@@ -300,9 +273,6 @@ int tr_LinkFile (char *source, char *destination)
 	extern int errno;
 #endif
 	int rv, ok;
-
-	if (tr_lsTryCopyFile(source, destination, &ok))
-		return (ok);
 
 	rv = link (source, destination);
 

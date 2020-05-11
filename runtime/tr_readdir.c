@@ -8,7 +8,7 @@
 	Copyright (c) 1996-2011 GenerixGroup
 ============================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_readdir.c 55433 2020-03-16 12:37:08Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: tr_readdir.c 55497 2020-05-06 15:49:05Z jlebiannic $")
 /*LIBRARY(libruntime_version)
 */
 /*============================================================================
@@ -309,8 +309,6 @@ char *tr_FileFullName (char *filename)
 
 	if (!filename || !*filename)
 		return TR_EMPTY;
-	if (tr_rlsRemoteName(filename))
-		return tr_MemPool(filename);
 	if (tr_abspath(filename, buf, sizeof(buf)))
 		return TR_EMPTY;
 	return tr_MemPool (buf);
@@ -368,11 +366,7 @@ char *tr_FilePath (char *filename)
 ======================================================================*/
 time_t tr_FileAccessTime (char *filename)
 {
-	struct stat   rls_buf;
 	struct tr_lfs_stat buf;
-
-	if (tr_lsTryStatFile(filename, &rls_buf))
-		return (rls_buf.st_atime);
 
 	if (tr_lfs_stat (filename, &buf)) {
 		tr_Log (TR_WARN_STAT_FAILED, filename, errno);
@@ -385,11 +379,7 @@ time_t tr_FileAccessTime (char *filename)
 ======================================================================*/
 time_t tr_FileModifiedTime (char *filename)
 {
-	struct stat   rls_buf;
 	struct tr_lfs_stat buf;
-
-	if (tr_lsTryStatFile(filename, &rls_buf))
-		return (rls_buf.st_mtime);
 
 	if (tr_lfs_stat (filename, &buf)) {
 		tr_Log (TR_WARN_STAT_FAILED, filename, errno);
@@ -402,11 +392,7 @@ time_t tr_FileModifiedTime (char *filename)
 ======================================================================*/
 time_t tr_FileStatusChangeTime (char *filename)
 {
-	struct stat   rls_buf;
 	struct tr_lfs_stat buf;
-
-	if (tr_lsTryStatFile(filename, &rls_buf))
-		return (rls_buf.st_ctime);
 
 	if (tr_lfs_stat (filename, &buf)) {
 		tr_Log (TR_WARN_STAT_FAILED, filename, errno);
@@ -419,11 +405,7 @@ time_t tr_FileStatusChangeTime (char *filename)
 ======================================================================*/
 double tr_FileSize (char *filename)
 {
-	struct stat   rls_buf;
 	struct tr_lfs_stat buf;
-
-	if (tr_lsTryStatFile(filename, &rls_buf))
-		return (rls_buf.st_size);
 
 	if (tr_lfs_stat (filename, &buf)) {
 		tr_Log (TR_WARN_STAT_FAILED, filename, errno);
@@ -436,29 +418,17 @@ double tr_FileSize (char *filename)
 ======================================================================*/
 char * tr_FileType (char *filename)
 {
-	struct stat   rls_buf;
 	struct tr_lfs_stat buf;
-	int x;
     tr_mode_t st_mode;
 
-	x = tr_lsTryStatFile(filename, &rls_buf);
-	if (x == -1)
-		return (TR_EMPTY);
-	else 
-        if (x == 0) {
-            if (tr_lfs_stat (filename, &buf) == -1) {
-		        tr_Log (TR_WARN_STAT_FAILED, filename, errno);
-		        return TR_EMPTY;
-            }
-            else
-            {
-                st_mode = buf.st_mode;
-            }
-        } 
-        else 
-        {
-            st_mode = rls_buf.st_mode;
-        }
+	if (tr_lfs_stat (filename, &buf) == -1) {
+		tr_Log (TR_WARN_STAT_FAILED, filename, errno);
+		return TR_EMPTY;
+	}
+	else
+	{
+		st_mode = buf.st_mode;
+	}
 
 	switch (st_mode & S_IFMT) {
 	case S_IFDIR:
@@ -477,31 +447,18 @@ char * tr_FileContent (char *filename)
 {
 	FILE *fp;
 	char *p;
-	int x;
-	struct stat   rls_buf;
 	struct tr_lfs_stat buf;
     tr_mode_t st_mode;
 	char buffer[32 + 1024];
 
-	x = tr_lsTryStatFile(filename, &rls_buf);
-	if (x == -1)
-		return (TR_EMPTY);
+	if (tr_lfs_stat (filename, &buf) == -1) {
+		tr_Log (TR_WARN_STAT_FAILED, filename, errno);
+		return TR_EMPTY;
+	}
 	else
-        if (x == 0)
-        {
-            if (tr_lfs_stat (filename, &buf) == -1) {
-        		tr_Log (TR_WARN_STAT_FAILED, filename, errno);
-        		return TR_EMPTY;
-            }
-            else
-            {
-                st_mode = buf.st_mode;
-            }
-    	}
-        else
-        {
-            st_mode = rls_buf.st_mode;
-        }
+	{
+		st_mode = buf.st_mode;
+	}
 
 	switch (st_mode & S_IFMT) {
 	case S_IFDIR:
@@ -558,15 +515,6 @@ double tr_FileLineCount (char *filename)
 ======================================================================*/
 int tr_FileExist (char *filename)
 {
-	int x;
-
-	x = tr_lsTryStatFile(filename, NULL);
-	if (x == 1)
-		return (1); /* yes */
-	if (x == -1)
-		return (0); /* no file */
-	/* else local */
-
 	if (filename && *filename && access(filename, F_OK) == 0)
 		return 1;
 	return 0;
@@ -595,9 +543,7 @@ int tr_FileExist (char *filename)
 ======================================================================*/
 int tr_FileAccess (char *filename, int type)
 {
-	struct stat   rls_st;
     struct tr_lfs_stat st, ls_st;
-	int x;
 
 #ifndef MACHINE_WNT
 	int gid, ngrps;
@@ -608,22 +554,6 @@ int tr_FileAccess (char *filename, int type)
 #endif
 	groups[128];	/* should really be NGROUPS, this has to be enough. */
 #endif
-
-	x = tr_lsTryStatFile(filename, &rls_st);
-	if (x == -1)
-		return (0); /* Error with remote file, so "no access" */
-
-	if (x == 1) {
-		/* ok stat of remote file, these are under .../files/.. thus our own */
-		if (type == 4)
-			return ((rls_st.st_mode & 0444) != 0);
-		if (type == 2)
-			return ((rls_st.st_mode & 0222) != 0);
-		if (type == 1)
-			return ((rls_st.st_mode & 0111) != 0);
-
-		return (1); /* no test-bit, file is there anyway */
-	}
 
 	/* not remote, continue locally */
 

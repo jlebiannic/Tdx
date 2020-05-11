@@ -16,7 +16,7 @@
 	
 ========================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_logsysstub.c 47429 2013-10-29 15:27:44Z cdemory $")
+MODULE("@(#)TradeXpress $Id: tr_logsysstub.c 55498 2020-05-07 07:40:18Z jlebiannic $")
 /*LIBRARY(libruntime_version)
 */
 /*========================================================================
@@ -44,29 +44,6 @@ MODULE("@(#)TradeXpress $Id: tr_logsysstub.c 47429 2013-10-29 15:27:44Z cdemory 
 #include "tr_prototypes.h"
 
 
-#if 0
-#define TR_WARN_FILE_WRITE_FAILED "Failed writing to file \"%s\" (%d)."
-#define TR_WARN_FILE_READ_FAILED  "Failed reading from file \"%s\" (%d)."
-#define TR_WARN_FILE_COPY_FAILED  "Failed copying \"%s\" to \"%s\" (%d)."
-
-/*
- *  Only for filter-comparison
- */
-#define OPERATOR_STRINGS
-
-#include "../logsystem/remote/rls.h"
-
-extern double atof();
-#ifndef MACHINE_LINUX
-extern int errno;
-#endif
-
-/*========================================================================
-========================================================================*/
-
-static LogSysHandle *ActiveLogSysHandles = (LogSysHandle *)NULL;
-#endif
-
 /*========================================================================
   Nobody is supposed to know the pathnames, and it would not
   even be usefull with remote bases !!!
@@ -77,30 +54,6 @@ char *tfBuild__LogSystemPath(LogSysHandle *log, char *ext)
 	return (tr_lsPath(log, ext));
 }
 
-/*
- *  Return 0 if fs-file, 1 if remote & exists and -1 if not.
- *  If result is NULL, this is only 'access()' call,
- *  and no error is logged.
- */
-int tr_lsTryStatFile(char *pseudoname, struct stat *st_result)
-{
-	return 0;
-}
-
-int tr_lsTryOpenFile(char *pseudoname, char *mode, FILE **fp_result)
-{
-	return 0;
-}
-
-int tr_lsTryRemoveFile(char *uglypath, int *ok_result)
-{
-	return 0;
-}
-
-int tr_lsTryCopyFile(char *source, char *destination, int *ok_result)
-{
-	return 0;
-}
 
 void tr_lsFreeStringArray(char **ta)
 {
@@ -110,12 +63,6 @@ void tr_lsFreeStringArray(char **ta)
 		free(*vp);
 
 	free (ta);
-}
-
-
-void tr_lsResetFile( FILE *fp )
-{
-	return;
 }
 
 int tr_lsCloseFile( FILE *fp, char mode )

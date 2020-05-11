@@ -8,7 +8,7 @@
 	Copyright (c) 1994 Telecom Finland/EDI Operations
 ========================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_logsyslocal.c 55477 2020-05-04 12:53:34Z jlebiannic $")
+MODULE("@(#)TradeXpress $Id: tr_logsyslocal.c 55491 2020-05-06 09:56:51Z jlebiannic $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 28.09.94/JN	Created, tr_logsys.c used as a template.
@@ -28,7 +28,7 @@ MODULE("@(#)TradeXpress $Id: tr_logsyslocal.c 55477 2020-05-04 12:53:34Z jlebian
   3.09 21.06.99/KP	tr_localGetTextParm returned NULL if requested
 			parameter did not exist. Now returns "".
   3.10 22.06.99/KP	tr_localCopyFields() did not copy ext. files.
-  3.11 12.08.99/KP	Small bug in the call of logentry_copyfiles()
+  3.11 12.08.99/KP	Small bug in the call of dao_logentry_copyfiles()
 			in tr_localCopyFields().
   3.12 30.11.99/KP	When removing logentry, destroy actual entry only
 			if all files are deleteed ok. (Caused trouble in NT)
@@ -62,7 +62,7 @@ MODULE("@(#)TradeXpress $Id: tr_logsyslocal.c 55477 2020-05-04 12:53:34Z jlebian
 #include <unistd.h>
 #endif
 
-#include "logsystem/lib/logsystem.h"
+#include "logsystem/lib/logsystem.dao.h"
 
 #include "tr_strings.h"
 #include "tr_externals.h"
@@ -123,11 +123,11 @@ int tr_lsVFindFirst( LogSysHandle *handle, int order, LogFieldHandle *key, char 
 	tr_lsOpen(handle, path);
 
 	/* Reset filter and insert new values to it. */
-	logfilter_clear(handle->filter);
+	dao_logfilter_clear(handle->filter);
 
 	if (key) {
-		logfilter_setorder((LogFilter **) &handle->filter, order);
-		logfilter_setkey  ((LogFilter **) &handle->filter, key->name);
+		dao_logfilter_setorder((LogFilter **) &handle->filter, order);
+		dao_logfilter_setkey  ((LogFilter **) &handle->filter, key->name);
 	}
 
 	while ((field = va_arg(ap, LogFieldHandle *)) != NULL) {
@@ -157,77 +157,49 @@ int tr_lsVFindFirst( LogSysHandle *handle, int order, LogFieldHandle *key, char 
 		}
 
 		/* TX-2896 07/09/2016 SCH(CG) : change field= filter shape by field<0 or field<> by field >0 */
-		if (tr_SQLiteMode() == 1) {
-			if (*valp == '\0') {
-				if (cmp==OP_EQ) {
-					cmp = OP_LT;
-				} else {
-					cmp = OP_GT;
-				}
-				/* TX-3136 use char with code 001 instead of char "0" */
-				valp = strdup("\001");
+		if (*valp == '\0') {
+			if (cmp==OP_EQ) {
+				cmp = OP_LT;
+			} else {
+				cmp = OP_GT;
 			}
+			/* TX-3136 use char with code 001 instead of char "0" */
+			valp = strdup("\001");
 		}
+		
 		/* End TX-2896 */
-		logfilter_insert((LogFilter **) &handle->filter, field->name, cmp, valp);
+		dao_logfilter_insert((LogFilter **) &handle->filter, field->name, cmp, valp);
 	}
 	va_end(ap);
 
-	logsys_compilefilter(handle->logsys, handle->filter);
+	dao_logsys_compilefilter(handle->logsys, handle->filter);
 
-    if (tr_SQLiteMode() == 0)
-    {
-        LogEntry **entrylist;
 
-        entrylist = logsys_makelist_indexed(handle->logsys, handle->filter);
+	LogIndex *indexlist;
 
-        if (entrylist == NULL || entrylist[0] == NULL) {
-            /* None found. (This check for zero count is just paranoia.) */
-            if (entrylist){
-                free(entrylist);
-			}
-            return (0);
-        }
-        /* At least one. Take it off from the list. */
-        handle->logEntry = entrylist[0];
-        entrylist[0] = NULL;
+	indexlist = dao_logsys_list_indexed((LogSystem *)handle->logsys,handle->filter);
 
-        if (entrylist[1] == NULL) {
-            /* Just this one entry in the list. We do not need the list anymore. */
-            free(entrylist);
-        } else {
-            /* Multiple entries in the list. Remember the place for find(). */
-            handle->listIndex = 1;
-            handle->entryList = (void **) entrylist;
-        }
-    }
-    else
-    {
-        LogIndex *indexlist;
+	if (indexlist == NULL)
+	{
+		/* None found. This check for zero count is just paranoia. */
+		free(indexlist);
+		return (0);
+	}
 
-        indexlist = logsys_list_indexed((LogSystem *)handle->logsys,handle->filter);
+	/* At least one. Take it off from the list. */
+	handle->logEntry = dao_logentry_readindex((LogSystem *) handle->logsys, indexlist[0]);
 
-        if (indexlist == NULL)
-        {
-            /* None found. This check for zero count is just paranoia. */
-            free(indexlist);
-            return (0);
-        }
+	indexlist[0] = 0;
 
-        /* At least one. Take it off from the list. */
-        handle->logEntry = logentry_readindex((LogSystem *) handle->logsys, indexlist[0]);
-
-        indexlist[0] = 0;
-
-        if (indexlist[1] == 0) {
-            /* Just this one entry in the list. We do not need the list anymore. */
-            free(indexlist);
-        } else {
-            /* Multiple entries in the list. Remember the place for find(). */
-            handle->listIndex = 1;
-            handle->indexList = (void *) indexlist;
-        }
-    }
+	if (indexlist[1] == 0) {
+		/* Just this one entry in the list. We do not need the list anymore. */
+		free(indexlist);
+	} else {
+		/* Multiple entries in the list. Remember the place for find(). */
+		handle->listIndex = 1;
+		handle->indexList = (void *) indexlist;
+	}
+    
 	return (1);	/* ok */
 }
 
@@ -235,52 +207,31 @@ int tr_lsFindNext(LogSysHandle *handle)
 {
 	/* Free previous active entry. */
 	if (handle->logEntry){
-		logentry_free(handle->logEntry);
+		dao_logentry_free(handle->logEntry);
 	}
 	handle->logEntry = NULL;
 
-    if (tr_SQLiteMode() == 0)
-    {
-        if (handle->entryList)
-        {
-            /* A list exits. Are there more entries in it ? */
-            handle->logEntry = handle->entryList[handle->listIndex];
-            handle->entryList[handle->listIndex] = NULL;
 
-            if (handle->logEntry){
-                handle->listIndex++;
-			}
-            /* Was the list exhausted ? */
-            if (handle->entryList[handle->listIndex] == NULL)
-            {
-                free(handle->entryList);
-                handle->entryList = NULL;
-                handle->listIndex = 0;
-            }
-        }
-    }
-    else
-    {
-        if (handle->indexList)
-        {
-            /* A list exits. Are there more entries in it ? */
-            if (handle->indexList[handle->listIndex] != 0)
-            {
-                handle->logEntry = logentry_readindex(handle->logsys, handle->indexList[handle->listIndex]);
-                handle->indexList[handle->listIndex] = 0;
-            }
-            if (handle->logEntry){
-                handle->listIndex++;
-			}
-            /* Was the list exhausted ? */
-            if (handle->indexList[handle->listIndex] == 0)
-            {
-                free(handle->indexList);
-                handle->indexList = NULL;
-                handle->listIndex = 0;
-            }
-        }
-    }
+	if (handle->indexList)
+	{
+		/* A list exits. Are there more entries in it ? */
+		if (handle->indexList[handle->listIndex] != 0)
+		{
+			handle->logEntry = dao_logentry_readindex(handle->logsys, handle->indexList[handle->listIndex]);
+			handle->indexList[handle->listIndex] = 0;
+		}
+		if (handle->logEntry){
+			handle->listIndex++;
+		}
+		/* Was the list exhausted ? */
+		if (handle->indexList[handle->listIndex] == 0)
+		{
+			free(handle->indexList);
+			handle->indexList = NULL;
+			handle->listIndex = 0;
+		}
+	}
+    
 	return (!!handle->logEntry); /* True if ok */
 }
 
@@ -290,32 +241,16 @@ int tr_lsFindNext(LogSysHandle *handle)
 void tr_lsFreeEntryList(LogSysHandle *handle)
 {
 	if (handle->logEntry){
-		logentry_free(handle->logEntry);
+		dao_logentry_free(handle->logEntry);
 	}
 	handle->logEntry = NULL;
 
-    if (tr_SQLiteMode() == 0)
-    {
-        if (handle->entryList)
-        {
-            int i = handle->listIndex;
-            if (i < 0){
-                i = 0;
-			}
-            for ( ; handle->entryList[i]; ++i){
-                logentry_free(handle->entryList[i]);
-			}
-            free(handle->entryList);
-        }
-        handle->entryList = NULL;
-    }
-    else
-    {
-        if (handle->indexList){
-            free(handle->indexList);
-		}
-        handle->indexList = NULL;
-    }
+
+	if (handle->indexList){
+		free(handle->indexList);
+	}
+	handle->indexList = NULL;
+    
 	handle->listIndex = 0;
 }
 
@@ -337,7 +272,7 @@ char *tr_lsGetTextVal(LogSysHandle *sh, LogFieldHandle *fh)
 	if (!fh->logField) {
 		return (TR_EMPTY);
 	}
-	return tr_MemPool(logentry_gettextbyfield(sh->logEntry, fh->logField));
+	return tr_MemPool(dao_logentry_gettextbyfield(sh->logEntry, fh->logField));
 }
 
 double tr_lsGetNumVal(LogSysHandle *sh, LogFieldHandle *fh)
@@ -352,10 +287,10 @@ double tr_lsGetNumVal(LogSysHandle *sh, LogFieldHandle *fh)
 		return (0.0);
 	}
 	if (field->type == FIELD_INDEX){
-		return (logentry_getindex(sh->logEntry));
+		return (dao_logentry_getindex(sh->logEntry));
 	}
 
-	return (logentry_getnumberbyfield(sh->logEntry, field));
+	return (dao_logentry_getnumberbyfield(sh->logEntry, field));
 }
 
 time_t tr_lsGetTimeVal(LogSysHandle *sh, LogFieldHandle *fh)
@@ -367,7 +302,7 @@ time_t tr_lsGetTimeVal(LogSysHandle *sh, LogFieldHandle *fh)
 	if (!fh->logField) {
 		return (0);
 	}
-	return (logentry_gettimebyfield(sh->logEntry, fh->logField));
+	return (dao_logentry_gettimebyfield(sh->logEntry, fh->logField));
 }
 
 int tr_lsSetTextVal(LogSysHandle *sh, LogFieldHandle *fh, char *value)
@@ -379,7 +314,7 @@ int tr_lsSetTextVal(LogSysHandle *sh, LogFieldHandle *fh, char *value)
 	if (!fh->logField) {
 		return (0);
 	}
-	logentry_settextbyfield(sh->logEntry, fh->logField, value);
+	dao_logentry_settextbyfield(sh->logEntry, fh->logField, value);
 
 	if (!sh->autoFlush) {
 		/*
@@ -388,7 +323,7 @@ int tr_lsSetTextVal(LogSysHandle *sh, LogFieldHandle *fh, char *value)
 		 */
 		return (1);
 	}
-	return (!logentry_write(sh->logEntry));
+	return (!dao_logentry_write(sh->logEntry));
 }
 
 int tr_lsSetNumVal(LogSysHandle *sh, LogFieldHandle *fh, double value)
@@ -403,17 +338,17 @@ int tr_lsSetNumVal(LogSysHandle *sh, LogFieldHandle *fh, double value)
 		return (0);
 	}
 	if (field->type == FIELD_INDEX){
-		logentry_setintegerbyfield(sh->logEntry, field,
+		dao_logentry_setintegerbyfield(sh->logEntry, field,
 			(Integer) (value + 0.5));
 	} else {
-		logentry_setnumberbyfield(sh->logEntry, field,
+		dao_logentry_setnumberbyfield(sh->logEntry, field,
 			(Number) value);
 	}
 	
 	if (!sh->autoFlush) {
 		return (1);
 	}
-	return (!logentry_write(sh->logEntry));
+	return (!dao_logentry_write(sh->logEntry));
 }
 
 int tr_lsSetTimeVal(LogSysHandle *sh, LogFieldHandle *fh, char *value)
@@ -429,12 +364,12 @@ int tr_lsSetTimeVal(LogSysHandle *sh, LogFieldHandle *fh, char *value)
 	}
 	tr_parsetime(value, tims);
 
-	logentry_settimebyfield(sh->logEntry, fh->logField, tims[0]);
+	dao_logentry_settimebyfield(sh->logEntry, fh->logField, tims[0]);
 
 	if (!sh->autoFlush) {
 		return (1);
 	}
-	return (!logentry_write(sh->logEntry));
+	return (!dao_logentry_write(sh->logEntry));
 }
 
 /*============================================================================
@@ -453,15 +388,15 @@ int tr_lsCopyEntry (LogSysHandle *to, LogSysHandle *from)
 	if (from->logEntry == to->logEntry) {
 		/* Gotcha ! */
 	} else {
-		logentry_copyfields(from->logEntry, to->logEntry);
+		dao_logentry_copyfields(from->logEntry, to->logEntry);
 	}
 
 	/*
 	 * 3.10/KP : Copy extension files also!
 	 * 3.11/KP : Should be from->logEntry and to->logEntry !!!
-	 * 	logentry_copyfiles(from, to);
+	 * 	dao_logentry_copyfiles(from, to);
 	 */
-	rc = logentry_copyfiles(from->logEntry, to->logEntry);
+	rc = dao_logentry_copyfiles(from->logEntry, to->logEntry);
     if (rc) { 
 		return (0);
 	}
@@ -469,7 +404,7 @@ int tr_lsCopyEntry (LogSysHandle *to, LogSysHandle *from)
 	if (!to->autoFlush) {
 		return (1);
 	}
-	return (!logentry_write(to->logEntry));
+	return (!dao_logentry_write(to->logEntry));
 }
 
 /*============================================================================
@@ -485,17 +420,9 @@ int tr_lsCreate (LogSysHandle *handle, char *path)
 	tr_lsFreeEntryList(handle);
 	tr_lsOpen(handle, path);
 
-	entry = logentry_new(handle->logsys);
+	entry = dao_logentry_new(handle->logsys);
 	if (entry == NULL){
 		tr_Fatal(TR_WARN_CANNOT_CREATE_NEW, handle->path);
-	} else {
-		 if (tr_SQLiteMode() == 0)
-		 { /* TX-3199: remove existing extensions only in old legacy mode */
-			/*
-			* 3.13/KP : Remove all subfiles, just-in-case.
-			*/
-			logentry_removefiles(entry, NULL);
-		 } 
 	}
 
 	handle->logEntry  = entry;
@@ -523,10 +450,10 @@ int tr_lsRemove(LogSysHandle *handle)
 	 * 3.12/KP : Destroy actual entry if and ONLY IF all files have been
 	 * safely removed.
 	 */
-	if (logentry_removefiles(entry, NULL)){
+	if (dao_logentry_removefiles(entry, NULL)){
 		ok = 0;
 	} else {
-		if (logentry_destroy(entry)) {
+		if (dao_logentry_destroy(entry)) {
 		ok = 0;
 		}
 	}
@@ -556,10 +483,10 @@ char* tr_lsPath (LogSysHandle *handle, char *extension)
 	}
 	if (LOGSYS_EXT_IS_DIR) {
 		sprintf (tmp, "%s/files/%s/%d", logsys->sysname,
-			extension, logentry_getindex(entry));
+			extension, dao_logentry_getindex(entry));
 	} else {
 		sprintf (tmp, "%s/files/%d.%s", logsys->sysname,
-			logentry_getindex(entry), extension);
+			dao_logentry_getindex(entry), extension);
 	}
 	return (tr_MemPool(tmp));
 }
@@ -583,7 +510,7 @@ int tr_lsCompileFields(LogSysHandle *handle)
 	for (lfh = handle->fields; lfh; lfh = lfh->next)
 	{
 		lfh->logField = NULL;
-		field = logsys_getfield(handle->logsys, lfh->name);
+		field = dao_logsys_getfield(handle->logsys, lfh->name);
 
 		if (field == NULL)
 		{
@@ -622,7 +549,7 @@ int tr_lsOpen(LogSysHandle *handle, char *path)
 		pathcopy = tr_strdup(path);
 
 		if (handle->logsys) {
-			logsys_close(handle->logsys);
+			dao_logsys_close(handle->logsys);
 			tr_free(handle->path);
 		}
 		if (handle->readOnly) {
@@ -630,7 +557,7 @@ int tr_lsOpen(LogSysHandle *handle, char *path)
 		}
 		
 		handle->path = pathcopy;
-		handle->logsys = logsys_open(handle->path, LS_FAILOK | mode);
+		handle->logsys = dao_logsys_open(handle->path, LS_FAILOK | mode);
 
 		if (handle->logsys == NULL) {
 			tr_Fatal(TR_FATAL_LOGSYS_OPEN_FAILED, handle->path);
@@ -661,7 +588,7 @@ int tr_lsWriteEntry(LogSysHandle *handle)
 		tr_Log(TR_WARN_LOGENTRY_NOT_SET);
 		return (0);
 	}
-	success = (!logentry_write(handle->logEntry));
+	success = (!dao_logentry_write(handle->logEntry));
 
 	/* IF   we are in autoflush mode OFF 
 	 * AND  we are in autocommit mode ON
@@ -694,7 +621,7 @@ void tr_lsOpenTransaction(LogSysHandle *handle)
 	/* open if closed/non opened */
 	if (handle->transactionState == 0) 
 	{
-		logsys_begin_transaction(handle->logsys);
+		dao_logsys_begin_transaction(handle->logsys);
 		handle->transactionState = 1;
 	}
 }
@@ -704,7 +631,7 @@ void tr_lsCloseTransaction(LogSysHandle *handle)
 	/* close if opened */
 	if (handle->transactionState == 1)
 	{
-		logsys_end_transaction(handle->logsys);
+		dao_logsys_end_transaction(handle->logsys);
 		handle->transactionState = 0;
 	}
 }
@@ -715,7 +642,7 @@ void tr_lsRollbackTransaction(LogSysHandle *handle)
 	 * rollback means also closing */
 	if (handle->transactionState == 1)
 	{
-		logsys_rollback_transaction(handle->logsys);
+		dao_logsys_rollback_transaction(handle->logsys);
 		handle->transactionState = 0;
 	}
 }
@@ -774,7 +701,7 @@ int tr_lsReadEntry(LogSysHandle *handle, double d_index)
 	tr_lsFreeEntryList(handle);
 	tr_lsOpen(handle, handle->path);
 
-	handle->logEntry = logentry_readindex(handle->logsys, idx);
+	handle->logEntry = dao_logentry_readindex(handle->logsys, idx);
 
 	return (!!handle->logEntry);	/* True if ok */
 }

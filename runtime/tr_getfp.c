@@ -8,7 +8,7 @@
 	Copyright (c) 1992-1994 Telecom Finland/EDI Operations
 ========================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_getfp.c 55433 2020-03-16 12:37:08Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: tr_getfp.c 55493 2020-05-06 13:38:41Z jlebiannic $")
 /*LIBRARY(libruntime_version)
 */
 /*========================================================================
@@ -391,11 +391,9 @@ failed:
 		}
 	} else {
 		if (mode == 'r') {
-			tr_Log(TR_WARN_GETFP_FOR_READ_FAILED,
-				tr_PrettyPrintFileName(filename), errno);
+			tr_Log(TR_WARN_GETFP_FOR_READ_FAILED, filename, errno);
 		} else {
-			tr_Log(TR_WARN_GETFP_FOR_WRITE_FAILED,
-				tr_PrettyPrintFileName(filename), errno);
+			tr_Log(TR_WARN_GETFP_FOR_WRITE_FAILED, filename, errno);
 		}
 	}
 	return((mode == 'r') ? TR_NULLFILE : stderr);

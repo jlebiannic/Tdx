@@ -15,7 +15,7 @@ NTADD = tr_regcmpown.$(OBJSFX) tr_ftruncate.$(OBJSFX) tr_sleep.$(OBJSFX) tr_comp
 CFLAGS=$(DEBUG_FLAGS) -DSTDC_HEADERS -DREGEX_MALLOC
 Library(libregex, posix_regex.$(OBJSFX))
 #else
-CFLAGS=$(DEBUG_FLAGS) 
+CFLAGS=$(DEBUG_FLAGS) -Werror=implicit-function-declaration
 #endif
 
 AllDepend($S/tr_strings.h $S/tr_prototypes.h)
@@ -63,7 +63,6 @@ PlainSource(tr_loaddef)
 PlainSource(tr_locale)
 PlainSource(tr_log)
 PlainSource(tr_logsyslocal)
-PlainSource(tr_logsysrem)
 PlainSource(tr_logsysstub)
 PlainSource(tr_main)
 PlainSource(tr_makeindex)
@@ -175,7 +174,6 @@ Library(libruntime, \
 	tr_loaddef.$(OBJSFX) \
 	tr_locale.$(OBJSFX) \
 	tr_log.$(OBJSFX) \
-	tr_logsysrem.$(OBJSFX) \
 	tr_main.$(OBJSFX) \
 	tr_makeindex.$(OBJSFX) \
 	tr_mblength.$(OBJSFX) \
@@ -240,7 +238,6 @@ Library(libtr_oftp, \
 	tr_buildtext.$(OBJSFX) \
 	tr_arrays.$(OBJSFX) \
 	tr_isempty.$(OBJSFX) \
-	tr_logsysrem.$(OBJSFX) \
 	tr_memory.$(OBJSFX) \
 	tr_adjustDS.$(OBJSFX) \
 	tr_parsetime.$(OBJSFX) \

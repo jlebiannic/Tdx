@@ -27,7 +27,6 @@ MODULE("@(#)TradeXpress $Id: tr_dbparms.c 55062 2019-07-22 12:35:02Z sodifrance 
 #include "tr_prototypes.h"
 #include "tr_strings.h"
 #include "tr_logsystem.h"
-#include "rlslib/rls.h"
 
 int	tr_dbparms_trace = 0;
 

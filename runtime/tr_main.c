@@ -8,7 +8,7 @@
 	Copyright (c) 1996 Telecom Finland/EDI Operations
 ============================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_main.c 55060 2019-07-18 08:59:51Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: tr_main.c 55495 2020-05-06 14:41:40Z jlebiannic $")
 static char *uname = UNAME;
 /* LIBRARY(libruntime_version) */
 /*============================================================================
@@ -79,12 +79,10 @@ static char *uname = UNAME;
 #include "tr_prototypes.h"
 #include "tr_bottom.h"
 #include "tr_strings.h"
-#include "rlslib/rls.h"
 
 #ifndef MACHINE_LINUX
 extern int  errno;
 #endif
-extern PRLS_LIST pGlobalRlsList;
 
 #if defined MACHINE_WNT || defined MULTI_SEP_007
 /* Needed in tr_Load(_PARAMETRES_) later on... (3.18/KP) */
@@ -118,7 +116,6 @@ extern char *tr_multisep;
 #ifdef DEBUG_CALLS
 extern struct tagVarStruct tr_vars[];
 #endif
-extern int tr_useSQLiteLogsys;
 
 /*============================================================================
 ============================================================================*/
@@ -166,20 +163,6 @@ void tr_Startup (int argc, char **argv)
 	tr_InitMemoryManager ();
 	tr_CatchSignals ();
 	tr_LoadDefaults (NULL);
-
-	/* old installation consider we have a legacy database (i.e not SQLite)
-	 * this is only revelant in local mode 
-	 * in rls, this is looked at server side 
-	 * as the information setted here cannot be transmitted via rls protocol */
-	if (getenv("USE_SQLITE_LOGSYS") != NULL)
-		tr_useSQLiteLogsys = atoi(getenv("USE_SQLITE_LOGSYS"));
-	else
-		tr_useSQLiteLogsys = 0;
-	/* this variable is usually loaded into environnement from .userenv
-	 * this may overwrite the same variable allready defined in the .tclrc 
-	 * (loaeded by the tr_LoadDefaults just above)
-	 * thus allowing to override the default comportement in the CLI.
-	 * ex : USE_SQLITE_LOGSYS=x my_rte ... */
 
 	/*
 	**  Prepare for debugging.  This routine strips all
@@ -334,52 +317,30 @@ void tr_Startup (int argc, char **argv)
 
 	if (tr_parameterFile && *tr_parameterFile)
 	{
-		/* Is it path to parameters in external DataBase ? */
-		if ( tr_lsTryStatFile(tr_parameterFile,NULL) == -1 )
+		/* local file */
+		if ( (int) tr_Load(0,tr_parameterFile,taPARAMETERS,tr_multisep,"=") == 0)
 		{
-			/* remote file */
-			RLSPATH       rlspath;
-
-			memset( &rlspath, 0x00, sizeof(RLSPATH) );
-			memset( &paramArrayLog, 0x00, sizeof(LogSysHandle) );
-			if (tr_rlsDecodeLoc( tr_parameterFile, &rlspath ))
-			{
-				if ( tr_lsOpen( &paramArrayLog, rlspath.location ))
-				{
-					if ( ( !tr_lsReadEntry(&paramArrayLog, (double) rlspath.idx) )
-					||   ( (int) tr_CopyArr(0,&paramArrayLog,rlspath.ext,NULL,taPARAMETERS,tr_multisep,"=") == 0 )
-					   )
-						tr_parameterFile = NULL;
-				}
-				tr_rlsReleaseRlsPath(&rlspath);
-			}
+			tr_parameterFile = NULL;
 		}
+#if defined MACHINE_WNT || defined MULTI_SEP_007
 		else
 		{
-			/* local file */
-			if ( (int) tr_Load(0,tr_parameterFile,taPARAMETERS,tr_multisep,"=") == 0)
-			{
-				tr_parameterFile = NULL;
-			}
-#if defined MACHINE_WNT || defined MULTI_SEP_007
-			else
-			{
-				/*
-				** Set the multisep to be "\007" hard-coded in NT
-				** This way we ensure that the pathnames containing colons are loaded correctly
-				** in all cases (hopefully) but still set the multisepc to '007' for later tr_Save()
-				** so that it will not even create multivalues out of paths.
-				** (Somewhat dirty trick but hopefully it works.)
-				*/
-				char buffer[3];
+			/*
+			** Set the multisep to be "\007" hard-coded in NT
+			** This way we ensure that the pathnames containing colons are loaded correctly
+			** in all cases (hopefully) but still set the multisepc to '007' for later tr_Save()
+			** so that it will not even create multivalues out of paths.
+			** (Somewhat dirty trick but hopefully it works.)
+			*/
+			char buffer[3];
 
-				buffer[0] = '=';
-				buffer[1] = '\007';
-				buffer[2] = '\0';
-				tr_am_textset (taFORMSEPS, taPARAMETERS, buffer);
-			}
-#endif
+			buffer[0] = '=';
+			buffer[1] = '\007';
+			buffer[2] = '\0';
+			tr_am_textset (taFORMSEPS, taPARAMETERS, buffer);
 		}
+#endif
+		
 	}
 
 	while (optind < argc) {
@@ -405,7 +366,6 @@ void tr_Startup (int argc, char **argv)
 void tr_Exit (int exitcode)
 {
 	char *cp;
-	PRLS_LIST	pPrev, pNext;
 
 	/* 3.17/JR Flushing problems with linux...
 	 * Interesting feature! Linux won't flush stdout and stderr
@@ -426,21 +386,6 @@ void tr_Exit (int exitcode)
 
 	/* 3.15/HT */
 	tr_FileCloseAll();
-
-	pPrev = NULL;
-	pNext = pGlobalRlsList;
-	while ( pNext ) {
-		/*
-		** Set pointers before rls_close
-		** rls_close will delete object from GlobalRlsList
-		*/
-		pPrev = pNext;
-		pNext = pNext->next;
-		if ( pPrev->pRls ) {
-			rls_noop( pPrev->pRls );
-			rls_close( pPrev->pRls );
-		}
-	}
 
 #if defined(DEBUG) && (MEM_DEBUG==1)
 	TDXMemDebug_dump(1);

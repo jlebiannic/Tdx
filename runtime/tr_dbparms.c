@@ -2,7 +2,7 @@
 	V E R S I O N   C O N T R O L
 ============================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_dbparms.c 55167 2019-09-24 13:48:37Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: tr_dbparms.c 55493 2020-05-06 13:38:41Z jlebiannic $")
 /*LIBRARY(libruntime_version)
 */
 /*============================================================================
@@ -26,7 +26,6 @@ MODULE("@(#)TradeXpress $Id: tr_dbparms.c 55167 2019-09-24 13:48:37Z sodifrance 
 #include "tr_prototypes.h"
 #include "tr_strings.h"
 #include "tr_logsystem.h"
-#include "rlslib/rls.h"
 
 enum {
 	LOAD_FRESH	= 0,   /* Create a new table        */

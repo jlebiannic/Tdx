@@ -8,7 +8,7 @@
 	Copyright (c) 1992 Telecom Finland/EDI Operations
 ============================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: tr_loaddef.c 55433 2020-03-16 12:37:08Z sodifrance $")
+MODULE("@(#)TradeXpress $Id: tr_loaddef.c 55499 2020-05-07 16:25:38Z jlebiannic $")
 /*LIBRARY(libruntime_version)
 */
 /*============================================================================
@@ -58,8 +58,10 @@ extern double atof();
  * instead of being scattered throughout the system. */
 int tr_doPackComponents;
 int tr_doPackElements;
-int tr_useLocalLogsys;
-int tr_useDao; // Jira TX-3199 DAO: id du DAO à créer
+
+// TODO remove these two variables and clean libs and tools which use them
+int tr_useLocalLogsys = 1;
+int tr_useSQLiteLogsys = 1;
 
 /* Can be set at translator.h
  * If set to 1, unknown options are always warned.
@@ -106,11 +108,8 @@ struct defval {
 	{ "EOF_STRING",				TEXT_VAR,	(void *)&TR_EOF },
 	{ "PACK_COMPONENTS",		INT_VAR,	(void *)&tr_doPackComponents },
 	{ "PACK_ELEMENTS",			INT_VAR,	(void *)&tr_doPackElements },
-	{ "USE_LOCAL_LOGSYS",		INT_VAR,	(void *)&tr_useLocalLogsys },
-	{ "USE_SQLITE_LOGSYS",		INT_VAR,	(void *)&tr_useSQLiteLogsys },
 	{ "CLEAN_TRAILING_SPACES",	INT_VAR,	(void *)&tr_cleanTrailingSpaces },
 	{ "MULTI_SEPARATOR",		MULTI_SEP,	(void *)&tr_multisep },
-	{ "USE_DAO",				INT_VAR,	(void *)&tr_useDao },
 	{ NULL,						0,			NULL }
 };
 
@@ -141,11 +140,7 @@ static int tr_DefaultDefaults (void)
 	if ((do_complain_about_unknown_tclopt == -1) && (isatty(2)))
 		do_complain_about_unknown_tclopt = 1;
 
-    /* rls mode by default */
-	tr_useLocalLogsys = 0;
     tr_cleanTrailingSpaces = 1;
-    /* sqlite by default */
-    tr_useDao = 0;
     
     return 0;
 }

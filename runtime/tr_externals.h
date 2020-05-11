@@ -4,7 +4,7 @@
 /*======================================================================
 ======================================================================*/
 #include "tr_logsystem.h"
-
+ 
 /* defined in tr_main.c */
 extern char *tr_matchBuf;         /* Used for line matching */
 extern char *tr_returnBuffer;     /* Contains possible "unread" */
@@ -56,11 +56,9 @@ extern char   *tr_multisep;       /* Separator for repeating parameters default 
 extern int tr_bufIndexWidth;      /* Width for the text representation */
 extern int tr_codeConversionSize; /* Number of lines to be buffered */
 
-/* defined in tr_loaddef.c */
-extern int	tr_useLocalLogsys;  /* Set in .tclrc, local or rls.. */
-extern int tr_useDao; /* Set in .tclrc, local or rls.. */
-
-/* defined in logsystem\lib\logsystem.c */
+// TODO remove these two variables and clean libs and tools which use them
+// defined in tr_loaddef.c
+extern int tr_useLocalLogsys;
 extern int tr_useSQLiteLogsys;
 
 /* defined in bottom\ckseg.c */
