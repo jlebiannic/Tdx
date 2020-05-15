@@ -55,14 +55,11 @@ int Service_findEntry(LogEntry *entry) {
 		return result;
 	}
 
-	const char queryFormat[] = "SELECT %s.* FROM %s WHERE TX_INDEX=$1";
-	char *query = allocStr(queryFormat, table, table);
-
-	dao_debug_logsys_warning(entry->logsys, "SQL Statement : %s", query);
-
+	char *strField = allocStr("%s.*", table);
+	const char *fields[1] = { strField };
 	char *idxAsStr = uitoa(entry->idx);
 	const char *queryParamValues[1] = { idxAsStr };
-	if (dao->execQueryParams(dao, query, queryParamValues, 1)) {
+	if (dao->getEntries(dao, table, fields, 1, "TX_INDEX=$", queryParamValues, TRUE)) {
 		/* statement OK (but still result == number of row/entry == 0) */
 		result++;
 		if (dao->hasNextEntry(dao)) {
@@ -73,7 +70,9 @@ int Service_findEntry(LogEntry *entry) {
 		}
 		result++;
 	}
-	free(query);
+
+	free(strField);
+	free(filter);
 	dao->clearResult(dao);
 
 	dao_debug_logsys_warning(entry->logsys, "Single Read Operation return : %d", result);
