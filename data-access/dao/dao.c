@@ -34,13 +34,13 @@ void Dao_logDebug(const char *fctName, const char *msg) {
 
 void Dao_logDebugFormat(char *formatAndParams, ...) {
 	if (getenv("DATA_ACCESS_DEBUG") != NULL) {
-	va_list ap;
-	va_start(ap, formatAndParams);
-	vprintf(formatAndParams, ap);
-	printf("\n");
-	fflush(stdout);
-	va_end(ap);
-}
+		va_list ap;
+		va_start(ap, formatAndParams);
+		vprintf(formatAndParams, ap);
+		printf("\n");
+		fflush(stdout);
+		va_end(ap);
+	}
 }
 
 

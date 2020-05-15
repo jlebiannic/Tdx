@@ -11,7 +11,7 @@
 ========================================================================*/
 #include "conf/config.h"
 LIBRARY(liblogsystem_version)
-MODULE("@(#)TradeXpress $Id: build.c 55499 2020-05-07 16:25:38Z jlebiannic $")
+MODULE("@(#)TradeXpress $Id: build.c 55505 2020-05-14 13:30:32Z jlebiannic $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 03.10.94/JN	Created.
@@ -39,6 +39,8 @@ MODULE("@(#)TradeXpress $Id: build.c 55499 2020-05-07 16:25:38Z jlebiannic $")
 #include "build.h"
 #undef _BUILD_C
 
+#include "logsystem/lib/daservice.h"
+
 static char *Sysdirs[] = {
 	LSFILE_FILES,
 	LSFILE_TRACE,
@@ -59,9 +61,7 @@ int logsys_buildsystem(char *sysname, char *cfgfile, struct opt options)
 
 	FILE *fp = NULL;
 	int statusBase;
-
 	log = dao_logsys_alloc(sysname);
-
 	if (options.rereadCfg == 1)
 	{
 		if (dao_logsys_readlabel(log) != 0)
@@ -69,12 +69,10 @@ int logsys_buildsystem(char *sysname, char *cfgfile, struct opt options)
 		old_label = log->label;
 	}
 
-	
 	/* label is expanded as needed by readconfig. */
 	/* on first build, we reorder the cfgfile to stay at maximum compatible with pre-5.0.4 binaries
 	 * on reconfig, order is broken if we had a column */
 	log->label = dao_logsys_readconfig(cfgfile,options.rereadCfg);
-
 	if (log->label == NULL)
 		bail_out("Cannot open %s", cfgfile);
 
@@ -99,21 +97,22 @@ int logsys_buildsystem(char *sysname, char *cfgfile, struct opt options)
 			fclose(fp);
 		}
 
-
-		if ( (options.rereadCfg == 0) && (statusBase == 0) ){
-			/* Print a warning and wait for confirmation */
+        int removeIfExists = 0;
+        if ((options.rereadCfg == 0) && (statusBase == 0)) {
+            /* Print a warning and wait for confirmation */
 
 			fprintf(stderr, "Warning: logcreate will remove all entries in %s.\nAre you sure you want to continue (y/n) ? ", sysname);
 
 			if (get_confirmation('n') != 'y')
-            		{
+            {
 				fprintf(stderr, "Cancelled.\n");
 				exit(2);
 			}
 			fprintf(stderr, "Continuing...\n");
-		}
-	
-		if ((options.rereadCfg == 0) && (options.checkAffinities == 0))
+            removeIfExists = 1;
+        }
+
+        if ((options.rereadCfg == 0) && (options.checkAffinities == 0))
 		{
 			logsys_createdirs(log->sysname);
 		}
@@ -122,7 +121,9 @@ int logsys_buildsystem(char *sysname, char *cfgfile, struct opt options)
 		logsys_createsqlindexes(cfgfile, log);
 		if ((options.rereadCfg == 0) && (options.checkAffinities == 0))
 		{
-			status = logsys_createdata_dao(log, Access_mode);
+			// Jira TX-3199 DAO
+			// status = logsys_createdata_dao(log, Access_mode);
+			status = Service_createTable(log, removeIfExists);
 		}
 
 

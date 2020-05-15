@@ -21,9 +21,9 @@ char* uitoa(unsigned int uint);
 char* inttoa(int i);
 void freeArray(char **array, int nb);
 char* arrayJoin(const char *fields[], int nb, char *sep);
-void arrayAddElement(char **array, char *element, int idx, int allocElement, int allocArray);
-void arrayAddTimeElement(char **array, time_t element, int idx, int allocArray);
-void arrayAddDoubleElement(char **array, double element, int idx, int allocArray);
-void arrayAddIntElement(char **array, int element, int idx, int allocArray);
+void arrayAddElement(char **array, char *element, int idx, int allocElement);
+void arrayAddTimeElement(char **array, time_t element, int idx);
+void arrayAddDoubleElement(char **array, double element, int idx);
+void arrayAddIntElement(char **array, int element, int idx);
 
 #endif /* COMMONS_COMMONS_H_ */

@@ -13,7 +13,7 @@
 	Look at variables logsys_*_allocated
 	when a leak is suspected.
 ========================================================================*/
-static char *version = "@(#)TradeXpress $Id: memalloc.c 55487 2020-05-06 08:56:27Z jlebiannic $";
+static char *version = "@(#)TradeXpress $Id: memalloc.c 55500 2020-05-12 14:34:55Z jlebiannic $";
 static char *uname = UNAME;
 extern char *liblogsystem_version;
 static char **lib = &liblogsystem_version;
@@ -28,6 +28,7 @@ static char **lib = &liblogsystem_version;
 
 #include "private.h"
 #include "logsystem.dao.h"
+#include "data-access/commons/daoFactory.h"
 
 void *malloc();
 void *realloc();
@@ -162,31 +163,42 @@ static char *dao_find_first_sep(char *path)
 /**
  * Jira TX-3199 DAO
  * */
-char* getLastPath(char *dirPath) {
+static char* getLastPathForSep(char *dirPath, char sep) {
 	int n = strlen(dirPath);
 	char *lastPath = dirPath + n;
 
-	while (0 < n && dirPath[--n] != '/')
+	while (0 < n && dirPath[--n] != sep)
 		;
-	if (dirPath[n] == '/') {
+	if (dirPath[n] == sep) {
 		lastPath = dirPath + n + 1;
 	} else {
-		lastPath = NULL;
+		lastPath = dirPath;
 	}
 	return lastPath;
 }
+
+ #ifdef MACHINE_WNT
+static char* getLastPath(char *dirPath) {
+	getLastPathForSep(dirPath, '\\');
+}
+#else
+static char* getLastPath(char *dirPath) {
+	getLastPathForSep(dirPath, '/');
+}
+#endif
 
 LogSystem *dao_logsys_alloc(char *sysname)
 {
 	LogSystem *log;
 	char *cp, *cp2, *owner;
-
 	log = dao_log_malloc(sizeof(*log));
 	memset(log, 0, sizeof(*log));
 
 	log->sysname = dao_log_strdup(sysname);
 	// Jira TX-3199 DAO: get current table
 	log->table = dao_log_strdup(getLastPath(sysname));
+	// Jira TX-3199 DAO: création du dao correspondant à la valeur de 1
+	log->dao = daoFactory_create(1);
 
 	log->labelfd = -1;
 	log->datafd = -1;

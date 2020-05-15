@@ -27,7 +27,7 @@ int main(void) {
 	
 	const char *indexeFields[3] = { "Ct2", "Cn3" };
 	dao->createIndex(dao, "testDaoCreateTable", "IDX_TEST", indexeFields, 2);
-
+	
 	dao->execQuery(dao, "select next from syslog where tx_index > 0");
 	while (dao->hasNextEntry(dao)) {
 		char *str = dao->getFieldValue(dao, "next");
@@ -89,18 +89,17 @@ int main(void) {
 
 	dao->closeDB(dao);
 
-	char **arr = NULL;
-	arr = (char**) malloc(sizeof(char**));
+	char *arr[4];
 
 	int cpt = 0;
-	arrayAddElement(arr, "test", cpt, FALSE, TRUE);
+	arrayAddElement(arr, "test", cpt, FALSE);
 	cpt++;
-	arrayAddIntElement(arr, 123, cpt, TRUE);
+	arrayAddIntElement(arr, 123, cpt);
 	cpt++;
-	arrayAddDoubleElement(arr, 456.789, cpt, TRUE);
+	arrayAddDoubleElement(arr, 456.789, cpt);
 	cpt++;
 	time_t timestamp = time( NULL);
-	arrayAddTimeElement(arr, timestamp, cpt, TRUE);
+	arrayAddTimeElement(arr, timestamp, cpt);
 
 	int i = 0;
 	for (i = 0; i <= cpt; i++) {

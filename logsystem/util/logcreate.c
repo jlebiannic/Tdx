@@ -1,5 +1,5 @@
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: logcreate.c 55499 2020-05-07 16:25:38Z jlebiannic $")
+MODULE("@(#)TradeXpress $Id: logcreate.c 55508 2020-05-15 13:11:30Z jlebiannic $")
 /*========================================================================
  * Record all changes here and update the above string accordingly.
  * TX-3123 - 10.07.2019 - Olivier REMAUD - UNICODE adaptation
@@ -72,6 +72,11 @@ static char * str4dup(char *a,char *b,char *c,char *d)
 	return (s);
 }
 
+static void notImplemented(char option){
+    printf("The option \"-%c\" is not implemented with relationnal database\n", option);
+    exit(3);
+}
+
 main(int argc, char **argv)
 {
 	extern char *optarg;
@@ -85,7 +90,6 @@ main(int argc, char **argv)
 
 	options.rereadCfg = 0;
 	options.checkAffinities = 0;
-
 	tr_UseLocaleUTF8();
 
     cmd = strdup(argv[0]);
@@ -101,21 +105,24 @@ main(int argc, char **argv)
 	-f cfgfile\n\
 	-q (Be quiet)\n\
 	-N (Dont actually create/reconfig system)\n\
-	-r In the RARE case you have exhausted all the unique indexes, reset the base counter (consider deep cleaning the base before this)\n\
-	-R reread cfgfile for a base (allow ONLY resizing or adding fields, need 5.0.5+ install)\n\
-	-C check consistency (of base affinities with cfgfile)\n\
+	-r not supported with relationnal database\n\
+	-R not supported with relationnal database\n\
+	-C not supported with relationnal database\n\
 ");
+	// -r In the RARE case you have exhausted all the unique indexes, reset the base counter (consider deep cleaning the base before this)\n\
+	// -R reread cfgfile for a base (allow ONLY resizing or adding fields, need 5.0.5+ install)\n\
+	// -C check consistency (of base affinities with cfgfile)\n\
+
 			exit(2);
 		case 's': Sysname = optarg; break;
 		case 'f': Cfgfile = optarg; break;
 		case 'N': Really = 0;       break;
 		case 'q': Quiet = 1;        break;
-		case 'r': resetBase = 1;    break;
-		case 'R': options.rereadCfg = 1;       break;
-		case 'C': options.checkAffinities = 1; break;
+		case 'r': notImplemented(c); //resetBase = 1;    break;
+		case 'R': notImplemented(c); //options.rereadCfg = 1;       break;
+		case 'C': notImplemented(c); //options.checkAffinities = 1; break;
 		}
     }
-
 	while (optind < argc)
     {
 		char *arg = argv[optind];
@@ -157,7 +164,6 @@ main(int argc, char **argv)
 		fprintf(stderr, "Need system name and description.\n");
 		exit(2);
 	}
-
     if (resetBase == 1)
     {
         dao_logsys_resetindex(Sysname);

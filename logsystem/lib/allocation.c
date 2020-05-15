@@ -10,7 +10,7 @@
 	Routines to create/destroy logentries.
 ========================================================================*/
 #include "conf/config.h"
-MODULE("@(#)TradeXpress $Id: allocation.c 55487 2020-05-06 08:56:27Z jlebiannic $")
+MODULE("@(#)TradeXpress $Id: allocation.c 55503 2020-05-13 15:40:26Z jlebiannic $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 03.10.94/JN	Created.
@@ -22,6 +22,7 @@ MODULE("@(#)TradeXpress $Id: allocation.c 55487 2020-05-06 08:56:27Z jlebiannic 
 #include <fcntl.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <time.h>
 
 #include "logsystem.dao.h"
 
@@ -44,6 +45,7 @@ LogEntry *dao_logentry_new(LogSystem *log)
 
 	/* we've got an index so we have a new entry */
 	dao_logsys_trace(log, "new index %d ok", idx);
+	
 	/* update timestamps */ 
 	dao_logentry_settimebyname(entry,"CREATED",dao_log_curtime());
 	dao_logentry_settimebyname(entry,"MODIFIED",dao_log_curtime());

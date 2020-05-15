@@ -76,14 +76,11 @@ char* arrayJoin(const char *fields[], int nb, char *sep) {
 	return res;
 }
 
-static void p_arrayAddElement(char **array, char *element, int idx, int allocArray) {
-	if (allocArray) {
-		*(array + idx) = (char*) malloc(sizeof(char*));
-	}
+static void p_arrayAddElement(char **array, char *element, int idx) {
 	array[idx] = element;
 }
 
-void arrayAddElement(char **array, char *element, int idx, int allocElement, int allocArray) {
+void arrayAddElement(char **array, char *element, int idx, int allocElement) {
 	char *newElem = NULL;
 	if (allocElement) {
 		newElem = malloc((strlen(element) + 1) * sizeof(char));
@@ -91,20 +88,20 @@ void arrayAddElement(char **array, char *element, int idx, int allocElement, int
 	} else {
 		newElem = element;
 	}
-	p_arrayAddElement(array, newElem, idx, allocArray);
+	p_arrayAddElement(array, newElem, idx);
 }
 
-void arrayAddTimeElement(char **array, time_t element, int idx, int allocArray) {
+void arrayAddTimeElement(char **array, time_t element, int idx) {
 	char *str = allocStr("%ld", element);
-	p_arrayAddElement(array, str, idx, allocArray);
+	p_arrayAddElement(array, str, idx);
 }
 
-void arrayAddDoubleElement(char **array, double element, int idx, int allocArray) {
+void arrayAddDoubleElement(char **array, double element, int idx) {
 	char *str = allocStr("%lf", element);
-	p_arrayAddElement(array, str, idx, allocArray);
+	p_arrayAddElement(array, str, idx);
 }
 
-void arrayAddIntElement(char **array, int element, int idx, int allocArray) {
+void arrayAddIntElement(char **array, int element, int idx) {
 	char *str = allocStr("%d", element);
-	p_arrayAddElement(array, str, idx, allocArray);
+	p_arrayAddElement(array, str, idx);
 }

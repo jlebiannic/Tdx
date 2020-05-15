@@ -10,7 +10,7 @@
 	Reading and writing logsystem stuff.
 ========================================================================*/
 #include "conf/local_config.h"
-MODULE("@(#)TradeXpress $Id: io.c 55495 2020-05-06 14:41:40Z jlebiannic $")
+MODULE("@(#)TradeXpress $Id: io.c 55500 2020-05-12 14:34:55Z jlebiannic $")
 /*========================================================================
   Record all changes here and update the above string accordingly.
   3.00 03.10.94/JN	Created.
@@ -38,7 +38,6 @@ MODULE("@(#)TradeXpress $Id: io.c 55495 2020-05-06 14:41:40Z jlebiannic $")
 #endif
 
 #include "port.h"
-#include "data-access/commons/daoFactory.h"
 #include "tr_externals.h"
 #include "daservice.h"
 
@@ -425,9 +424,6 @@ LogSystem * dao_logsys_open(char *sysname, int flags)
 	/* The LOGSYS_EXT_IS_DIR was set there... */
 
 	log = dao_logsys_alloc(sysname);
-	// Jira TX-3199 DAO: création du dao correspondant à la valeur de 1
-	log->dao = daoFactory_create(1);
-	
 
 	log->walkidx = 1;
 	log->open_mode = (flags & LS_READONLY) ? O_RDONLY : O_RDWR;

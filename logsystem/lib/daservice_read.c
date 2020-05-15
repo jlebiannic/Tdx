@@ -15,6 +15,7 @@ static int isNoPageCount();
 static const char* getOpString(int opValue);
 static char* dao_wildcard(FilterRecord *f, char *p_text);
 static void buildEntry(LogEntry *entry, int i);
+static int getMaxNbValues(LogFilter *lf);
 
 static int MAXCOUNT = 100000;
 #define MAX_OP_SIZE 8
@@ -24,7 +25,8 @@ static int MAXCOUNT = 100000;
 int Service_findEntries(LogSystem *log, LogIndex **pIndexes, LogFilter *lf) {
 	int nbResults = -1;
 
-	char **values = (char**) malloc(sizeof(char**));
+	int maxNbValues = getMaxNbValues(lf);
+	char *values[maxNbValues];
 	char *filter = NULL;
 	int nbValues = -1;
 	buildFilterAndValues(&filter, lf, values, &nbValues);
@@ -32,7 +34,6 @@ int Service_findEntries(LogSystem *log, LogIndex **pIndexes, LogFilter *lf) {
 	char *fields[] = { "TX_INDEX" };
 	int resQuery = log->dao->getEntries(log->dao, log->table, (const char **)fields, 1, filter, (const char **)values);
 	freeArray(values, nbValues);
-	free(values);
 	free(filter);
 
 	if (resQuery) {
@@ -203,29 +204,29 @@ static void buildFilterAndValues(char **pSqlStatement, LogFilter *lf, char **val
 						ioffset += sprintf(*pSqlStatement + ioffset, " NOT"); /* add NOT and go on as EQ case */
 					case OP_EQ:
 						ioffset += sprintf(*pSqlStatement + ioffset, " BETWEEN $ AND $");
-						arrayAddTimeElement(values, p->times[0], cpt, TRUE);
+						arrayAddTimeElement(values, p->times[0], cpt);
 						cpt++;
-						arrayAddTimeElement(values, p->times[1], cpt, TRUE);
+						arrayAddTimeElement(values, p->times[1], cpt);
 						cpt++;
 						break;
 					case OP_LT:
 						ioffset += sprintf(*pSqlStatement + ioffset, "< $");
-						arrayAddTimeElement(values, p->times[0], cpt, TRUE);
+						arrayAddTimeElement(values, p->times[0], cpt);
 						cpt++;
 						break;
 					case OP_LTE:
 						ioffset += sprintf(*pSqlStatement + ioffset, "<= $");
-						arrayAddTimeElement(values, p->times[1], cpt, TRUE);
+						arrayAddTimeElement(values, p->times[1], cpt);
 						cpt++;
 						break;
 					case OP_GTE:
 						ioffset += sprintf(*pSqlStatement + ioffset, ">= $");
-						arrayAddTimeElement(values, p->times[0], cpt, TRUE);
+						arrayAddTimeElement(values, p->times[0], cpt);
 						cpt++;
 						break;
 					case OP_GT:
 						ioffset += sprintf(*pSqlStatement + ioffset, ">= $");
-						arrayAddTimeElement(values, p->times[1], cpt, TRUE);
+						arrayAddTimeElement(values, p->times[1], cpt);
 						cpt++;
 						break;
 					default:
@@ -234,20 +235,20 @@ static void buildFilterAndValues(char **pSqlStatement, LogFilter *lf, char **val
 					break;
 					case FIELD_NUMBER:
 					ioffset += sprintf(*pSqlStatement + ioffset, "%s $", getOpString(f->op));
-						arrayAddDoubleElement(values, p->number, cpt, TRUE);
+						arrayAddDoubleElement(values, p->number, cpt);
 						cpt++;
 						break;
 					case FIELD_INDEX:
 					case FIELD_INTEGER:
 					ioffset += sprintf(*pSqlStatement + ioffset, "%s $", getOpString(f->op));
-						arrayAddIntElement(values, p->integer, cpt, TRUE);
+						arrayAddIntElement(values, p->integer, cpt);
 						cpt++;
 						break;
 					case FIELD_TEXT:
 						p_text = dao_wildcard(f, p->text);
 						// TODO use PQescapeLiteral insteadof dao_wildcard (=> tests)
 					ioffset += sprintf(*pSqlStatement + ioffset, "%s $", getOpString(f->op));
-						arrayAddElement(values, p_text, cpt, TRUE, TRUE);
+						arrayAddElement(values, p_text, cpt, TRUE);
 						cpt++;
 						if ((f->op == OP_LEQ) || (f->op == OP_LNEQ)) {
 						ioffset += sprintf(*pSqlStatement + ioffset, " ESCAPE '\\'");
@@ -262,8 +263,8 @@ static void buildFilterAndValues(char **pSqlStatement, LogFilter *lf, char **val
 		if (f->n_primaries > 1) {
 			ioffset += sprintf(*pSqlStatement + ioffset, " )");
 		}
-		*nbValues = cpt;
 	}
+	*nbValues = cpt;
 
 	if (lf->sort_key) {
 		ioffset += sprintf(*pSqlStatement + ioffset, " ORDER BY \"%s%s\"", strPrefixColName(lf->sort_key), lf->sort_key);
@@ -452,3 +453,17 @@ static void buildEntry(LogEntry *entry, int i) {
 	}
 }
 
+static int getMaxNbValues(LogFilter *lf){
+	FilterRecord *f;
+	union FilterPrimary *p;
+	int cpt = 0;
+
+	if (lf) {
+		for (f = lf->filters; f < &lf->filters[lf->filter_count]; ++f) {
+	 		for (p = f->primaries; p < &f->primaries[f->n_primaries]; ++p) {
+				 cpt++;
+		 	}
+	 	}
+	}
+	return cpt*2;
+}

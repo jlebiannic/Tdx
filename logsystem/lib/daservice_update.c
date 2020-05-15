@@ -65,9 +65,9 @@ static void buildArraysForUpdateQuery(LogEntry *entry, int rawmode, char *fields
 				continue;
 			}
 			fieldName = allocStr("TX_%s", log->label->fields[i].name.string);
-			arrayAddElement(fields, fieldName, cpt, FALSE, FALSE);
+			arrayAddElement(fields, fieldName, cpt, FALSE);
 		} else {
-			arrayAddElement(fields, log->label->fields[i].name.string, cpt, TRUE, FALSE);
+			arrayAddElement(fields, log->label->fields[i].name.string, cpt, TRUE);
 		}
 
 		switch ((log->label->fields[i]).type) {
@@ -75,19 +75,19 @@ static void buildArraysForUpdateQuery(LogEntry *entry, int rawmode, char *fields
 			break;
 		case FIELD_NUMBER:
 			fieldValue = allocStr("%lf", *(Number*) (entry->record->buffer + log->label->fields[i].offset));
-			arrayAddElement(values, fieldValue, cpt, FALSE, FALSE);
+			arrayAddElement(values, fieldValue, cpt, FALSE);
 			break;
 		case FIELD_TIME:
 			fieldValue = allocStr("%s", tr_timestring("%a", *(TimeStamp*) (entry->record->buffer + log->label->fields[i].offset)));
-			arrayAddElement(values, fieldValue, cpt, FALSE, FALSE);
+			arrayAddElement(values, fieldValue, cpt, FALSE);
 			break;
 		case FIELD_INDEX:
 		case FIELD_INTEGER:
 			fieldValue = allocStr("%d", *(int*) (entry->record->buffer + log->label->fields[i].offset));
-			arrayAddElement(values, fieldValue, cpt, FALSE, FALSE);
+			arrayAddElement(values, fieldValue, cpt, FALSE);
 			break;
 		case FIELD_TEXT:
-			arrayAddElement(values, (char*) (entry->record->buffer + log->label->fields[i].offset), cpt, TRUE, FALSE);
+			arrayAddElement(values, (char*) (entry->record->buffer + log->label->fields[i].offset), cpt, TRUE);
 			break;
 		}
 		cpt++;
