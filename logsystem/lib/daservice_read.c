@@ -32,7 +32,7 @@ int Service_findEntries(LogSystem *log, LogIndex **pIndexes, LogFilter *lf) {
 	buildFilterAndValues(&filter, lf, values, &nbValues);
 	
 	char *fields[] = { "TX_INDEX" };
-	int resQuery = log->dao->getEntries(log->dao, log->table, (const char **)fields, 1, filter, (const char **)values);
+	int resQuery = log->dao->getEntries(log->dao, log->table, (const char**) fields, 1, filter, (const char**) values, TRUE);
 	freeArray(values, nbValues);
 	free(filter);
 
@@ -59,7 +59,7 @@ int Service_findEntry(LogEntry *entry) {
 	const char *fields[1] = { strField };
 	char *idxAsStr = uitoa(entry->idx);
 	const char *queryParamValues[1] = { idxAsStr };
-	if (dao->getEntries(dao, table, fields, 1, "TX_INDEX=$", queryParamValues, TRUE)) {
+	if (dao->getEntries(dao, table, fields, 1, "TX_INDEX=$", queryParamValues, FALSE)) {
 		/* statement OK (but still result == number of row/entry == 0) */
 		result++;
 		if (dao->hasNextEntry(dao)) {

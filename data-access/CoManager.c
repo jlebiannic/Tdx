@@ -15,7 +15,7 @@
 #include "commons/daoFactory.h"
 #include "commons/commons.h"
 
-int main(void) {
+int cm(void) {
 	puts("Main start");
 
 	Dao *dao = daoFactory_create(1);
@@ -23,7 +23,7 @@ int main(void) {
 
 	const char *fields[3] = { "Ci1", "Ct2", "Cn3" };
 	const char *types[3] = { "INTEGER", "TEXT", "NUMERIC" };
-	dao->createTable(dao, "testDaoCreateTable", fields, types, 3, 0);
+	dao->createTable(dao, "testDaoCreateTable", fields, types, 3, 0, TRUE);
 	
 	const char *indexeFields[3] = { "Ct2", "Cn3" };
 	dao->createIndex(dao, "testDaoCreateTable", "IDX_TEST", indexeFields, 2);
@@ -38,10 +38,17 @@ int main(void) {
 	// dao->execQueryParamsMultiResults(dao, "select next from syslog where tx_index > $1 order by tx_index", 0);
 	char *fields0[1] = { "next" };
 	char *values0[1] = { "0" };
-	dao->getEntries(dao, "syslog", (const char**) fields0, 1, "tx_index > $ order by tx_index", (const char**) values0);
+	dao->getEntries(dao, "syslog", (const char**) fields0, 1, "tx_index > $ order by tx_index", (const char**) values0, TRUE);
 	while (dao->hasNextEntry(dao)) {
 		char *str = dao->getFieldValue(dao, "next");
 		printf("#next is %s\n", str);
+		dao->getNextEntry(dao);
+	}
+
+	dao->getEntries(dao, "syslog", (const char**) fields0, 1, "tx_index > $ order by tx_index", (const char**) values0, FALSE);
+	while (dao->hasNextEntry(dao)) {
+		char *str = dao->getFieldValue(dao, "next");
+		printf("##next is %s\n", str);
 		dao->getNextEntry(dao);
 	}
 
@@ -69,7 +76,8 @@ int main(void) {
 
 	char *fields3[2] = { "autack", "info" };
 	char *values3[2] = { "a updated", "i updated" };
-	dao->updateEntries(dao, "syslog", (const char**) fields3, (const char**) values3, 2, "autack='0'");
+	char *filterValues[2] = { "0" };
+	dao->updateEntries(dao, "syslog", (const char**) fields3, (const char**) values3, 2, "autack='$'", (const char**) filterValues);
 
 	const char *values4[1] = { "a updated" };
 	dao->execQueryParams(dao, "select info, autack from syslog where autack=$1 order by tx_index", values4, 1);
@@ -81,6 +89,12 @@ int main(void) {
 
 		dao->getNextEntry(dao);
 	}
+
+	char *fields31[2] = { "autack", "info" };
+	char *values31[2] = { "a updated", "i updated" };
+	char *filterValues1[1] = { "test" };
+	dao->updateEntries(dao, "syslog", (const char**) fields31, (const char**) values31, 2, "autack=$", (const char**) filterValues1);
+
 
 //	int idx = dao->newEntry(dao, "syslog");
 //	printf("idx is %d\n", idx);

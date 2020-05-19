@@ -25,5 +25,6 @@ void arrayAddElement(char **array, char *element, int idx, int allocElement);
 void arrayAddTimeElement(char **array, time_t element, int idx);
 void arrayAddDoubleElement(char **array, double element, int idx);
 void arrayAddIntElement(char **array, int element, int idx);
+char** arrayConcat(char *t1[], int nbT1, char *t2[], int nbT2);
 
 #endif /* COMMONS_COMMONS_H_ */

@@ -55,25 +55,24 @@ void freeArray(char *array[], int nb) {
 
 char* arrayJoin(const char *fields[], int nb, char *sep) {
 	int i = 0;
-	char *str = NULL;
-	char *res = NULL;
+	int MAX = 500;
+	int maxLen = MAX;
+	char *str = str = (char*) malloc(maxLen);
+	strcpy(str, "");
+
 	for (i = 0; i < nb; i++) {
-		if (str == NULL) {
-			str = (char*) malloc(strlen(fields[i]) + 1);
-			strcpy(str, fields[i]);
-			res = str;
-		} else {
-			int len = strlen(str);
-			str = str + len;
-			str = (char*) realloc(str, len + strlen(fields[i]) + 1);
-			strcpy(str, fields[i]);
+		int fieldLen = strlen(fields[i]);
+		if ((fieldLen + strlen(str)) + 1 >= maxLen) {
+			maxLen = strlen(str) + fieldLen + MAX;
+			str = (char*) realloc(str, maxLen);
 		}
+		strcat(str, fields[i]);
 
 		if (i < nb - 1) {
 			strcat(str, sep);
 		}
 	}
-	return res;
+	return str;
 }
 
 static void p_arrayAddElement(char **array, char *element, int idx) {
@@ -104,4 +103,18 @@ void arrayAddDoubleElement(char **array, double element, int idx) {
 void arrayAddIntElement(char **array, int element, int idx) {
 	char *str = allocStr("%d", element);
 	p_arrayAddElement(array, str, idx);
+}
+
+char** arrayConcat(char *t1[], int nbT1, char *t2[], int nbT2) {
+	int nbResult = nbT1 + nbT2;
+	char **tResult = (char**) malloc(nbResult * sizeof(char*));
+	int i;
+	for (i = 0; i < nbResult; i++) {
+		if (i < nbT1) {
+			tResult[i] = t1[i];
+		} else {
+			tResult[i] = t2[i - nbT1];
+		}
+	}
+	return tResult;
 }
