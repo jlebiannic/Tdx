@@ -11,7 +11,7 @@
         that are necessary in all cases 
         
 ==========================================================================
-  @(#)TradeXpress $Id: logsystem.definitions.h 55487 2020-05-06 08:56:27Z jlebiannic $
+  @(#)TradeXpress $Id: logsystem.definitions.h 55512 2020-05-18 14:35:54Z jlebiannic $
   Record all changes here and update the above string accordingly.
   3.00 17.02.06/FH	Copied from logsystem.h
   10.04.18 AAU (AMU) BG-198 : Extended logfilter to add env_val and env_op to implement filtering by environment in MBA mode
@@ -29,7 +29,7 @@
 extern char* tr_timestring (char *,time_t );
 extern void	 tr_parsetime  (char *,time_t*);
 
-#define LSVERSION 3
+#define LSVERSION 4
 
 #ifndef _REMOVAL_C
 extern int LOGSYS_EXT_IS_DIR;
@@ -37,7 +37,7 @@ extern int LOGSYS_EXT_IS_DIR;
 int LOGSYS_EXT_IS_DIR;
 #endif
 
-#define LSMAGIC_LABEL (0x2ED1DB00 | (int) 'l')
+#define LSMAGIC_LABEL (0x84A43F00 | (int) 'p')
 
 #define LSFILE_LABEL     "/.label"
 #define LSFILE_FILES     "/files"

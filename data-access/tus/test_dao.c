@@ -9,11 +9,11 @@
 #include<string.h>
 #include<stdio.h>
 #include <stdarg.h>
-#include "commons/commons.h"
-#include "dao/dao.h"
-#include "commons/daoFactory.h"
+#include "data-access/commons/commons.h"
+#include "data-access/dao/dao.h"
+#include "data-access/commons/daoFactory.h"
 
-static const char *TEST_TABLE1 = "test_table1";
+static const char *TABLE = "tudao";
 static const char *TX_INDEX = "TX_INDEX";
 static const char *STATUS = "STATUS";
 static const char *VAL = "VAL";
@@ -71,18 +71,18 @@ static void assertDblEquals(char *functionName, const char *paramName, double va
 static void test_createTable(Dao *dao) {
 	const char *fields[5] = { TX_INDEX, STATUS, VAL, CREATED, MODIFIED };
 	const char *types[5] = { "INTEGER", "TEXT", "NUMERIC", "INTEGER", "INTEGER" };
-	int res = dao->createTable(dao, TEST_TABLE1, fields, types, 5, 0, TRUE);
+	int res = dao->createTable(dao, TABLE, fields, types, 5, 0, TRUE);
 	assertTrue("test_createTable", "res", res);
 }
 
 static void test_createIndex(Dao *dao) {
 	const char *indexeFields[3] = { "TX_INDEX", "VAL" };
-	int res = dao->createIndex(dao, TEST_TABLE1, "IDX_TEST_TABLE1", indexeFields, 2);
+	int res = dao->createIndex(dao, TABLE, "IDX_TEST_123", indexeFields, 2);
 	assertTrue("test_createIndex", "res", res);
 }
 
 static int test_newEntry(Dao *dao) {
-	int idx = dao->newEntry(dao, TEST_TABLE1);
+	int idx = dao->newEntry(dao, TABLE);
 	assertIntNotEquals("test_newEntry", "idx", idx, 0);
 	return idx;
 }
@@ -90,7 +90,7 @@ static int test_newEntry(Dao *dao) {
 static void test_findEntry(Dao *dao, int idx) {
 	const char *fields[1] = { TX_INDEX };
 	const char *values[1] = { inttoa(idx) };
-	int res = dao->getEntries(dao, TEST_TABLE1, fields, 1, "tx_index=$", values, FALSE);
+	int res = dao->getEntries(dao, TABLE, fields, 1, "tx_index=$", values, FALSE);
 	assertTrue("test_findEntry", "res", res);
 	assertIntEquals("test_findEntry", "getNbResults", dao->getNbResults(dao), 1);
 	assertIntEquals("test_findEntry", "TX_INDEX", dao->getFieldValueAsInt(dao, TX_INDEX), idx);
@@ -100,14 +100,14 @@ static void test_updateEntries(Dao *dao, int idx, const char *status, const char
 	const char *fields[2] = { STATUS, VAL };
 	const char *values[2] = { status, val };
 	const char *filterValues[1] = { inttoa(idx) };
-	int res = dao->updateEntries(dao, TEST_TABLE1, fields, values, 2, "TX_INDEX=$", filterValues);
+	int res = dao->updateEntries(dao, TABLE, fields, values, 2, "TX_INDEX=$", filterValues);
 	assertTrue("test_updateEntries", "res", res);
 }
 
 static void test_verifyEntry(Dao *dao, int idx, const char *status, double val) {
 	const char *fields[2] = { STATUS, VAL };
 	const char *values[1] = { inttoa(idx) };
-	int res = dao->getEntries(dao, TEST_TABLE1, fields, 2, "tx_index=$", values, FALSE);
+	int res = dao->getEntries(dao, TABLE, fields, 2, "tx_index=$", values, FALSE);
 	assertTrue("test_verifyEntry", "res", res);
 	assertIntEquals("test_verifyEntry", "getNbResults", dao->getNbResults(dao), 1);
 	assertStrEquals("test_verifyEntry", "STATUS", dao->getFieldValue(dao, STATUS), status);
@@ -117,7 +117,7 @@ static void test_verifyEntry(Dao *dao, int idx, const char *status, double val) 
 static void test_verifyEntry2(Dao *dao, int idx1, int idx2, const char *status1, double val1, const char *status2, double val2) {
 	const char *fields[2] = { STATUS, VAL };
 	const char *values[2] = { inttoa(idx1), inttoa(idx2) };
-	int res = dao->getEntries(dao, TEST_TABLE1, fields, 2, "tx_index=$ or tx_index=$ order by tx_index", values, TRUE);
+	int res = dao->getEntries(dao, TABLE, fields, 2, "tx_index=$ or tx_index=$ order by tx_index", values, TRUE);
 	assertTrue("test_verifyEntry2", "res", res);
 	assertIntEquals("test_verifyEntry2", "getNbResults", dao->getNbResults(dao), 2);
 	//assertStrEquals("test_newEntry", "STATUS", dao->getFieldValue(STATUS), status);
@@ -139,6 +139,20 @@ static void test_verifyEntry2(Dao *dao, int idx1, int idx2, const char *status1,
 	assertIntEquals("test_verifyEntry2", "cpt", cpt, 2);
 }
 
+static void test_verifyEntryCount(Dao *dao, const char* tableName, int count) {
+	const char *fields[1] = { "cnt" };
+	const char *values[1] = { tableName };
+	int res = dao->getEntries(dao, "entry_count", fields, 1, "table_name=$", values, FALSE);
+	assertTrue("test_verifyEntryCount", "res", res);
+    assertTrue("test_verifyEntryCount", "hasNextEntry", dao->hasNextEntry(dao));
+	assertIntEquals("test_verifyEntryCount", "CNT", dao->getFieldValueAsInt(dao, "CNT"), 2);
+}
+
+static void test_addTrigerEntryCount(Dao *dao){
+    int res = dao->createTriggersEntryCount(dao, TABLE);
+	assertTrue("test_verifyEntryCount", "res", res);
+}
+
 int main(int argc, char **argv) {
 
 	Dao *dao = daoFactory_create(1);
@@ -147,6 +161,7 @@ int main(int argc, char **argv) {
 
 	test_createTable(dao);
 	test_createIndex(dao);
+	test_addTrigerEntryCount(dao);
 	int idx = test_newEntry(dao);
 	test_findEntry(dao, idx);
 	test_updateEntries(dao, idx, "Modified", "123.456");
@@ -154,6 +169,7 @@ int main(int argc, char **argv) {
 	int idx2 = test_newEntry(dao);
 	test_updateEntries(dao, idx2, "Modified2", "789.01");
 	test_verifyEntry2(dao, idx, idx2, "Modified", 123.456, "Modified2", 789.01);
+    test_verifyEntryCount(dao, TABLE, 2);
 
-	return 0;
+    return 0;
 }

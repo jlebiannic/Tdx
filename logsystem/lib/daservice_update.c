@@ -48,7 +48,6 @@ static int execUpdateQuery(LogEntry *entry, int rawmode) {
 	char *idxAsStr = uitoa(entry->idx);
 	const char *filterValues[1] = { idxAsStr };
 	int res = dao->updateEntries(dao, table, (const char**) fields, (const char**) values, realNb, "TX_INDEX=$", filterValues);
-	free(filter);
 	freeArray(fields, realNb);
 	freeArray(values, realNb);
 	return res;

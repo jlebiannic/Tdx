@@ -627,6 +627,7 @@ main(int argc, char **argv)
 	int 	 		 n  = 0;
 	int 	 		 i  = 0;
 /*3.10*/	
+    tr_InitMemoryManager();
 
     tr_UseLocaleUTF8();
 

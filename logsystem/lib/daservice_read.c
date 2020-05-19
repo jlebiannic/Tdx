@@ -72,7 +72,6 @@ int Service_findEntry(LogEntry *entry) {
 	}
 
 	free(strField);
-	free(filter);
 	dao->clearResult(dao);
 
 	dao_debug_logsys_warning(entry->logsys, "Single Read Operation return : %d", result);

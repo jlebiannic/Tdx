@@ -32,8 +32,14 @@ int Service_createTable(LogSystem *log, int removeIfExists) {
     char *fields[nbFields];
     char *types[nbFields];
 
-    int cpt = 0;
+    int cpt = 1;
+    arrayAddElement(fields, "TX_INDEX", 0, TRUE);
+    arrayAddElement(types, (char *)getTypeAffinity("FIELD_INDEX"), 0, TRUE);
     for (f = label->fields; f->type; ++f) {
+		/* (TX_)INDEX allready added, drop it */
+		if (strcmp(f->name.string,"INDEX") == 0) {
+			continue;
+		}
         arrayAddElement(fields, f->name.string, cpt, TRUE);
         arrayAddElement(types, (char *)getTypeAffinity(f->type), cpt, TRUE);
         cpt++;

@@ -179,6 +179,8 @@ main(int argc, char **argv)
 	char * s;
 	/*End JRE*/
 
+	tr_InitMemoryManager();
+
 	tr_UseLocaleUTF8();
 
 	dao_logsys_compability_setup();
