@@ -14,6 +14,7 @@ typedef struct Dao {
     int (*execQueryParamsMultiResults)(struct Dao *, const char *, const char *[], int);
     unsigned int (*newEntry)(struct Dao *, const char *table);
 	int (*updateEntries)(struct Dao*, const char*, const char*[], const char*[], int, const char*, const char*[]);
+	int (*removeEntries)(struct Dao*, const char *table, const char *filter, const char *filterValues[]);
 	int (*getEntries)(struct Dao*, const char*, const char*[], int, const char*, const char*[], int);
     void (*getNextEntry)(struct Dao *);
     int (*hasNextEntry)(struct Dao *);

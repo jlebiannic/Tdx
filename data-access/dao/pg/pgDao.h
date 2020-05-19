@@ -16,6 +16,7 @@ typedef struct PgDao {
     int (*execQueryParamsMultiResults)(struct PgDao *, const char *, const char *[], int);
     unsigned int (*newEntry)(struct PgDao *, const char *);
 	int (*updateEntries)(struct PgDao*, const char*, const char*[], const char*[], int, const char*, const char*[]);
+	int (*removeEntries)(struct PgDao*, const char *table, const char *filter, const char *filterValues[]);
 	int (*getEntries)(struct PgDao*, const char*, const char*[], int, const char*, const char*[], int);
     void (*getNextEntry)(struct PgDao *);
     int (*hasNextEntry)(struct PgDao *);
@@ -62,6 +63,7 @@ int PgDao_execQueryParams(PgDao *This, const char *queryFormat, const char *para
 int PgDao_execQueryParamsMultiResults(PgDao *This, const char *query, const char *values[], int nbValues);
 unsigned int PgDao_newEntry(PgDao *This, const char *table);
 int PgDao_updateEntries(PgDao *This, const char *table, const char *fields[], const char *values[], int nb, const char *filter, const char *filterValues[]);
+int PgDao_removeEntries(PgDao *This, const char *table, const char *filter, const char *filterValues[]);
 int PgDao_getEntries(PgDao *This, const char *table, const char *fields[], int nbFields, const char *filter, const char *values[], int cursorMode);
 void PgDao_getNextEntry(PgDao *);
 int PgDao_hasNextEntry(PgDao *);

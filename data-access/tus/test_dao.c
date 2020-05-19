@@ -145,12 +145,18 @@ static void test_verifyEntryCount(Dao *dao, const char* tableName, int count) {
 	int res = dao->getEntries(dao, "entry_count", fields, 1, "table_name=$", values, FALSE);
 	assertTrue("test_verifyEntryCount", "res", res);
     assertTrue("test_verifyEntryCount", "hasNextEntry", dao->hasNextEntry(dao));
-	assertIntEquals("test_verifyEntryCount", "CNT", dao->getFieldValueAsInt(dao, "CNT"), 2);
+	assertIntEquals("test_verifyEntryCount", "CNT", dao->getFieldValueAsInt(dao, "CNT"), count);
 }
 
 static void test_addTrigerEntryCount(Dao *dao){
     int res = dao->createTriggersEntryCount(dao, TABLE);
 	assertTrue("test_verifyEntryCount", "res", res);
+}
+
+static void test_removeEntries(Dao *dao, const char *val1, const char *val2) {
+	const char *values[2] = { val1, val2 };
+	int res = dao->removeEntries(dao, TABLE, "status = $ or status = $", values);
+	assertTrue("test_removeEntries", "res", res);
 }
 
 int main(int argc, char **argv) {
@@ -170,6 +176,8 @@ int main(int argc, char **argv) {
 	test_updateEntries(dao, idx2, "Modified2", "789.01");
 	test_verifyEntry2(dao, idx, idx2, "Modified", 123.456, "Modified2", 789.01);
     test_verifyEntryCount(dao, TABLE, 2);
+	test_removeEntries(dao, "Modified", "Modified2");
+	test_verifyEntryCount(dao, TABLE, 0);
 
     return 0;
 }

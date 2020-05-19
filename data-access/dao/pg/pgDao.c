@@ -36,6 +36,7 @@ static void PgDao_init(PgDao *This) {
     This->execQueryParamsMultiResults = PgDao_execQueryParamsMultiResults;
     This->newEntry = PgDao_newEntry;
     This->updateEntries = PgDao_updateEntries;
+	This->removeEntries = PgDao_removeEntries;
     This->getEntries = PgDao_getEntries;
     This->getNextEntry = PgDao_getNextEntry;
     This->hasNextEntry = PgDao_hasNextEntry;
@@ -370,6 +371,21 @@ int PgDao_updateEntries(PgDao *This, const char *table, const char *fields[], co
     free(query);
 
     return res;
+}
+
+int PgDao_removeEntries(PgDao *This, const char *table, const char *filter, const char *filterValues[]) {
+	int res;
+	char *deleteFrom = allocStr("DELETE FROM %s", table);
+	int nbValues = -1;
+	char *removeFilter = filter != NULL && strlen(filter) > 0 ? allocStr("WHERE %s", p_toPgStx(filter, &nbValues, 1)) : "";
+
+	char *query = allocStr("%s %s", deleteFrom, removeFilter);
+	res = This->execQueryParams(This, query, (const char**) filterValues, nbValues);
+	free(deleteFrom);
+	free(removeFilter);
+	free(query);
+
+	return res;
 }
 
 int PgDao_removeTable(PgDao *This, const char *table, int dropIfExists) {
