@@ -25,6 +25,7 @@ MODULE("@(#)TradeXpress $Id: allocation.c 55503 2020-05-13 15:40:26Z jlebiannic 
 #include <time.h>
 
 #include "logsystem.dao.h"
+#include "daservice.h"
 
 LogEntry *dao_logentry_new(LogSystem *log)
 {
@@ -35,9 +36,9 @@ LogEntry *dao_logentry_new(LogSystem *log)
 
 	/* Pick up a new entry in the database and ask her the new index */
 	/* Jira TX-3199 DAO */
-	idx = log->dao->newEntry(log->dao, log->table);
+    idx = Service_newEntry(log);
 
-	if (idx == 0) 
+    if (idx == 0) 
 		return NULL;
 
 	/* clean allocation (record zeroed) */
@@ -60,9 +61,11 @@ int dao_logentry_destroy(LogEntry *entry)
     /* what we are about to do */
 	dao_logsys_trace(entry->logsys, "destroying entry %d", idx);
     /* real remove in the database */
-    logentry_dao_destroy(entry);
+    //logentry_dao_destroy(entry);
+	// Jira TXP-18 dao
+    Service_removeEntries(entry);
     /* no matter the result, free the memory entry */
-	dao_logentry_free(entry);
+    dao_logentry_free(entry);
     
     return 0;
 }

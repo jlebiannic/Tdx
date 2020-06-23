@@ -2,7 +2,6 @@
  * daservice_update.c
  *
  *  Created on: 27 mars 2020
- *      Author: jlebiannic
  */
 
 #include <stdlib.h>

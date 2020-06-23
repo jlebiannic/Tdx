@@ -5,8 +5,8 @@
 /* PART 0 */
 
 char *tr_versioncntrl="@(#)TradeXpress RTE-executable";
-static char *tr_mtr_version="\nTradeXpress mtr version: 3.11\n";
-static char *tr_mktr_argv="\nTradeXpress mktr argv: mktr -c TstBaseAccess2.rte\n";
+static char *tr_mtr_version="\nTradeXpress mtr version: 4.0\n";
+static char *tr_mktr_argv="\nTradeXpress mktr argv: mktr -g TstBaseAccess2.rte\n";
 static char *tr_compilation_host="\nTradeXpress compilation host: VRT1LAP3102\n";
 char *TR_SQLNULL = "";
 void bail_out (char* fmt,...) {return;}

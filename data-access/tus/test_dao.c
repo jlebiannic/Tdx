@@ -120,8 +120,6 @@ static void test_verifyEntry2(Dao *dao, int idx1, int idx2, const char *status1,
 	int res = dao->getEntries(dao, TABLE, fields, 2, "tx_index=$ or tx_index=$ order by tx_index", values, TRUE);
 	assertTrue("test_verifyEntry2", "res", res);
 	assertIntEquals("test_verifyEntry2", "getNbResults", dao->getNbResults(dao), 2);
-	//assertStrEquals("test_newEntry", "STATUS", dao->getFieldValue(STATUS), status);
-	//assertDblEquals("test_newEntry", "VAL", dao->getFieldValueAsDoubleByNum(VAL), val);
 	int cpt = 0;
 	while (dao->hasNextEntry(dao)) {
 		char *status = dao->getFieldValueByNum(dao, 0);

@@ -16,6 +16,11 @@
 static int createIndex(LogSystem *log);
 static const char *getTypeAffinity(int typeValue);
 static int getNbFieldsAndIndexPosition(LogLabel *label, int *indexPosition);
+
+int Service_newEntry(LogSystem *log){
+	return log->dao->newEntry(log->dao, log->table);
+}
+
 int Service_createTable(LogSystem *log, int removeIfExists) {
     //char *errMsg = NULL;
     LogLabel *label = NULL;
@@ -34,7 +39,7 @@ int Service_createTable(LogSystem *log, int removeIfExists) {
 
     int cpt = 1;
     arrayAddElement(fields, "TX_INDEX", 0, TRUE);
-    arrayAddElement(types, (char *)getTypeAffinity("FIELD_INDEX"), 0, TRUE);
+    arrayAddElement(types, (char *)getTypeAffinity(FIELD_INDEX), 0, TRUE);
     for (f = label->fields; f->type; ++f) {
 		/* (TX_)INDEX allready added, drop it */
 		if (strcmp(f->name.string,"INDEX") == 0) {

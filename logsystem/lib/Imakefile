@@ -55,6 +55,7 @@ PlainSource(daservice_read)
 PlainSource(daservice_update)
 PlainSource(daservice_common)
 PlainSource(daservice_create)
+PlainSource(daservice_delete)
 
 Library(liblogsystem, \
 logsystem.$(OBJSFX) \
@@ -87,6 +88,7 @@ daservice_read.$(OBJSFX) \
 daservice_update.$(OBJSFX) \
 daservice_common.$(OBJSFX) \
 daservice_create.$(OBJSFX) \
+daservice_delete.$(OBJSFX) \
 )
 
 Library(liblogsystem_dummy_symb, \

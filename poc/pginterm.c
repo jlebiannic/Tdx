@@ -5,8 +5,8 @@
 /* PART 0 */
 
 char *tr_versioncntrl="@(#)TradeXpress RTE-executable";
-static char *tr_mtr_version="\nTradeXpress mtr version: 3.11\n";
-static char *tr_mktr_argv="\nTradeXpress mktr argv: mktr -c pginterm.rte\n";
+static char *tr_mtr_version="\nTradeXpress mtr version: 4.0\n";
+static char *tr_mktr_argv="\nTradeXpress mktr argv: mktr -g pginterm.rte\n";
 static char *tr_compilation_host="\nTradeXpress compilation host: VRT1LAP3102\n";
 char *TR_SQLNULL = "";
 void bail_out (char* fmt,...) {return;}
@@ -88,10 +88,6 @@ else
  TR_SQLNULL = tr_strdup(tr_am_textget(taPARAMETERS,"SQL_NULL"));
  }
 debughook(11,1);
-debughook(12,0);
-tr_lsCreate(&SYSLOG,tr_GetEnv("SYSLOG"));
-debughook(13,0);
-tr_lsRemove(&SYSLOG);
 debughook(14,0);
 tr_lsFindFirst(&SYSLOG,0,(void *)0,tr_GetEnv("SYSLOG"),&lfh_1_1,1,1,(double)tr_TextToNum(tr_am_textget(taPARAMETERS,"INDEX")),NULL);
 debughook(28,0);

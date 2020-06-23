@@ -46,5 +46,10 @@ OID=${1:-16455}
 ./pgedisend &
 ./pgedisend &
 ./pgedisend &
+./pgedisend &
+./pgedisend &
+./pgedisend &
+./pgedisend &
+./pgedisend &
 ) | grep "Creating INDEX"
 wait

@@ -1,0 +1,80 @@
+!   Tus couche dao
+!	1) logcreate -s tudao -f tudao/tudao.cfg
+!	2) TUDAO=$EDIHOME/databases/tudao; mktr tus_dao.rte
+!	3) ./tus_dao
+  
+base "tudao.cfg" TUDAO
+
+begin
+	
+	print("Create entry INDEX ", nIndex,NL)
+	TUDAO:=new(sTUDAO)
+	nIndex:=TUDAO.INDEX
+	bfIsValid(build("After new entry index ", nIndex))
+	
+	print("Find entry INDEX ", nIndex, NL)
+	TUDAO:=find(sTUDAO,INDEX=nIndex)
+	bfIsValid(build("After find by index ", nIndex))
+	
+	print("Update entry INDEX ", nIndex,NL)
+	TUDAO.STATUS:="Modified"
+	TUDAO.VAL:=123.456
+
+	print("Update entry INDEX ", nIndex,NL)
+	TUDAO.STATUS:="Modified"
+	TUDAO.VAL:=123.456
+	
+	print("Find entry after update INDEX ", nIndex,NL)
+	TUDAO:=find(sTUDAO,INDEX=nIndex)
+	bfIsValid(build("After find by index ", nIndex))
+
+	if (TUDAO.STATUS <> "Modified" or TUDAO.VAL <> number("123.456")) then
+		nfError("Update", "values for STATUS and/or VAL are incorrect")
+	else 
+		print("[OK] Update status and val", NL)
+	endif
+
+	print("Create 2nd entry INDEX ", nIndex,NL)
+	TUDAO:=new(sTUDAO)
+	nIndex:=TUDAO.INDEX
+	bfIsValid(build("After new entry index ", nIndex))	
+
+	print("Update entry INDEX ", nIndex,NL)
+	TUDAO.STATUS:="Modified"
+	TUDAO.VAL:=number("789.01")
+	
+	print("Find entry after update INDEX ", nIndex,NL)
+	TUDAO:=find(sTUDAO,INDEX=nIndex)
+	bfIsValid(build("After find by index ", nIndex))
+	
+	if (TUDAO.STATUS <> "Modified" or TUDAO.VAL <> number("789.01")) then
+		nfError("Update", "values for STATUS and/or VAL are incorrect")
+	else 
+		print("[OK] Update status and val", NL)
+	endif
+	
+	print("Find entry after update INDEX ", nIndex,NL)
+	TUDAO:=find(sTUDAO, STATUS="Modified", VAL>number("123"))
+	bfIsValid(build("After find with two parameters ", nIndex))
+	
+	while TUDAO in (sTUDAO) do
+		print("found INDEX ", TUDAO.INDEX, " STATUS=", TUDAO.STATUS, "VAL=", TUDAO.VAL, NL)
+	endwhile
+ 
+endbegin
+
+function bfIsValid(tAction)
+	if valid(TUDAO) then
+		print("[OK] ", tAction, " Handle table valid", NL)
+		return TRUE
+	else 
+		nfError(tAction, " Handle table invalide")
+		return FALSE
+	endif
+endfunction
+
+function nfError(tAction, tMessage)
+	print("[ERROR] ", tAction, ": ", tMessage, NL)
+	exit(1)
+endfunction
+

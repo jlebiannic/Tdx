@@ -1,8 +1,8 @@
-DBG=-DDEBUG
+DBG=
 CC=cc -g
-CFLAGS= $(DBG) -DEDISERVER_C=3013 -I/data1/home/jlebiannic/lib -I/data1/home/jlebiannic/DEVEL/TX5_2_UNICODE/Linux/lib 
-LDFLAGS=-L/usr/pgsql-12/lib -L. -L/data1/home/jlebiannic/lib -L/data1/home/jlebiannic/DEVEL/TX5_2_UNICODE/Linux/lib -lruntime -ledi -lrls -ltdxdao -lpq -llogsystem -lpthread -ldl -lruntime -lm 
-EXEC=TstBaseAccess TstPerf pgedisend pginterm
+CFLAGS= $(DBG) -DEDISERVER_C=3013 -I/data1/home/jlebiannic/lib -I/data1/home/jlebiannic/DEVEL/TX6_0/Linux/lib 
+LDFLAGS=-L/usr/pgsql-12/lib -L. -L/data1/home/jlebiannic/lib -L/data1/home/jlebiannic/DEVEL/TX6_0/Linux/lib -lruntime -ledi -ltdxdao -lpq -llogsystem -lpthread -ldl -lruntime -lm 
+EXEC=TstBaseAccess TstBaseAccess2 TstPerf pgedisend pginterm
 
 all: $(EXEC)
 
@@ -11,6 +11,12 @@ TstBaseAccess: TstBaseAccess.o libtdxdao.so
 
 TstBaseAccess.o: TstBaseAccess.c
 	$(CC) -o TstBaseAccess.o -c TstBaseAccess.c $(CFLAGS)
+
+TstBaseAccess2: TstBaseAccess2.o libtdxdao.so
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+TstBaseAccess2.o: TstBaseAccess2.c
+	$(CC) -o TstBaseAccess2.o -c TstBaseAccess2.c $(CFLAGS)
 
 testperf: TstPerf
 	./TstPerf
@@ -58,7 +64,7 @@ cleanAll: clean
 	rm -rf $(EXEC) ${EDIHOME}/lib/libtdxdao.so  libtdxdao.so
 
 
-ROOT=/data1/home/jlebiannic/DEVEL/TX5_2_UNICODE/Linux/src
+ROOT=/data1/home/jlebiannic/DEVEL/TX6_0/Linux/src
 LOGSYSLIB=$(ROOT)/logsystem/lib
 SQLITE=$(ROOT)/3rdParty/sqlite/3_8_11_1/include64
 PG=/usr/pgsql-12/include

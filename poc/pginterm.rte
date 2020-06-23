@@ -9,8 +9,8 @@
 
 base "syslog.cfg" SYSLOG
 begin
-	SYSLOG:=new(sSYSLOG)
-	remove(SYSLOG)
+	!SYSLOG:=new(sSYSLOG)
+	!remove(SYSLOG)
 	SYSLOG:=find(sSYSLOG,INDEX=number(pINDEX))
 	if valid(SYSLOG)  then
 		SYSLOG.STATUS:=pSTAGE

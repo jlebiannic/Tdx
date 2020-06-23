@@ -1,0 +1,14 @@
+.vscode
+c-timer-lib
+TstBaseAccess
+TstBaseAccess2
+TstPerf
+out
+perf
+testlo
+simple
+pgedisend
+pginterm
+time
+tus_dao
+*.o

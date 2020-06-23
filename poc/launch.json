@@ -1,0 +1,33 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+
+    // "program": "/data1/home/jlebiannic/DEVEL/TX6_0/Linux/obj/logsystem/util/logcreate",
+    // "args": ["-s","test", "-f","test/test.cfg"],
+
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "gcc - Générer et déboguer le fichier actif",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/data1/home/jlebiannic/DEVEL/TX6_0/Linux/src/poc/tus_dao",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "/data1/home/jlebiannic/DEVEL/TX6_0/Linux/src/poc",
+            "environment": [{ "EDIHOME": "data1/home/jlebiannic/DEVEL/TX6_0/Linux", "TUDAO": "/data1/home/jlebiannic/DEVEL/TX6_0/Linux/databases/tudao"}],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Activer l'impression en mode Pretty pour gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+    //        "preLaunchTask": "make",
+            "miDebuggerPath": "/usr/bin/gdb"
+        }
+    ]
+}
